@@ -269,6 +269,7 @@ const meCalibrator = new Calibrator({ calibrationDuration: 120000 }); // 2 min
 const meStateEstimator = new StateEstimator(meCalibrator);
 const meFaceAnalyzer = new FaceAnalyzer();
 const meIntentGenerator = new IntentGenerator();
+const meSignalFilter = new SignalPersistenceFilter(); // Session 118: read fast, act on sustained
 let meCurrentIntent = null;
 let meDebugVisible = false;
 let meStateTickInterval = null;
@@ -353,10 +354,13 @@ function meStateTick() {
   meStateEstimator._arcTarget = arcEnergy;
 
   // Estimate state
-  const state = meStateEstimator.estimate({
+  const rawState = meStateEstimator.estimate({
     intent: [], // No pre-set intent — ME generates intent FROM state
     calibrated: meCalibrator.calibrated
   });
+
+  // Session 118: Signal Persistence Filter — only act on sustained shifts
+  const { state } = meSignalFilter.filter(rawState);
 
   // Generate intent
   meCurrentIntent = meIntentGenerator.generate(state, {
@@ -995,6 +999,10 @@ function beginSession() {
   $('v-entry').classList.remove('active');
   $('v-session').classList.add('active');
 
+  // Show loading state
+  const timer = $('session-timer');
+  if (timer) timer.textContent = 'LOADING...';
+
   // Wait for YT players to be ready
   const waitForPlayers = setInterval(() => {
     if (cfm.ready.A && cfm.ready.B) {
@@ -1003,13 +1011,21 @@ function beginSession() {
     }
   }, 200);
 
-  // Timeout after 10s
+  // Timeout after 8s — start with whatever is ready
   setTimeout(() => {
     clearInterval(waitForPlayers);
-    if (!sessionActive && cfm.ready.A) {
-      session.start(selectedEnergy, selectedDuration);
+    if (!sessionActive) {
+      if (cfm.ready.A || cfm.ready.B) {
+        session.start(selectedEnergy, selectedDuration);
+      } else {
+        // YouTube failed completely — show error
+        if (timer) timer.textContent = 'YT FAILED';
+        console.error('[EDDIE] YouTube players not ready after 8s. Check: network, ad blocker, YT iframe API');
+        // Try to force-start anyway — camera and state estimation still work
+        session.start(selectedEnergy, selectedDuration);
+      }
     }
-  }, 10000);
+  }, 8000);
 }
 
 function endSession() {
