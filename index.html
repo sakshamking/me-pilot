@@ -185,6 +185,12 @@ body {
 <!-- ===== ENTRY ===== -->
 <div id="v-entry" class="view active">
   <div class="brand-mark">M + E</div>
+  <div id="welcome-back" style="font-size:11px;letter-spacing:2px;color:rgba(255,255,255,0.15);margin-bottom:8px;display:none"></div>
+  <input id="name-input" type="text" placeholder="YOUR NAME" autocomplete="off" spellcheck="false"
+    style="background:transparent;border:none;border-bottom:1px solid rgba(255,255,255,0.08);
+    color:rgba(255,255,255,0.5);font-size:14px;letter-spacing:3px;text-align:center;
+    padding:8px 16px;width:200px;outline:none;font-family:inherit;margin-bottom:24px"
+    oninput="onNameInput(this)">
   <div class="energy-select">
     <div class="energy-dot" data-energy="low" data-label="LOW" onclick="selectEnergy(this)"></div>
     <div class="energy-dot" data-energy="mid" data-label="MID" onclick="selectEnergy(this)"></div>
@@ -245,7 +251,7 @@ body {
 </div>
 
 <!-- ===== SCRIPTS ===== -->
-<script src="https://www.youtube.com/iframe_api"></script>
+<script src="https://www.youtube-nocookie.com/iframe_api"></script>
 <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh@0.4.1633559619/face_mesh.js" crossorigin="anonymous"></script>
 <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils@0.3.1632432234/camera_utils.js" crossorigin="anonymous"></script>
 <script src="track_data.js"></script>
@@ -264,6 +270,51 @@ let selectedEnergy = null;   // 'low' | 'mid' | 'high'
 let selectedDuration = 30;   // minutes
 let sessionActive = false;
 let sessionStartTime = null;
+let currentUserName = null;
+
+// ==================== USER MEMORY (localStorage) ====================
+function meLoadUser() {
+  try {
+    const stored = localStorage.getItem('me_users');
+    return stored ? JSON.parse(stored) : {};
+  } catch(e) { return {}; }
+}
+
+function meSaveUser(name, sessionData) {
+  const users = meLoadUser();
+  if (!users[name]) users[name] = { sessions: 0, firstSeen: Date.now(), lastSeen: 0, peakEnergy: 0 };
+  users[name].sessions++;
+  users[name].lastSeen = Date.now();
+  if (sessionData) {
+    if (sessionData.peakEnergy > users[name].peakEnergy) users[name].peakEnergy = sessionData.peakEnergy;
+  }
+  try { localStorage.setItem('me_users', JSON.stringify(users)); } catch(e) {}
+}
+
+function onNameInput(el) {
+  const name = el.value.trim();
+  const users = meLoadUser();
+  const welcome = $('welcome-back');
+  if (name && users[name.toLowerCase()]) {
+    const u = users[name.toLowerCase()];
+    const sessions = u.sessions;
+    welcome.textContent = sessions === 1 ? 'WELCOME BACK' : `WELCOME BACK · SESSION ${sessions + 1}`;
+    welcome.style.display = 'block';
+  } else {
+    welcome.style.display = 'none';
+  }
+}
+
+// On page load — restore last name
+(function() {
+  try {
+    const lastName = localStorage.getItem('me_last_name');
+    if (lastName) {
+      const inp = $('name-input');
+      if (inp) { inp.value = lastName; onNameInput(inp); }
+    }
+  } catch(e) {}
+})();
 
 // ==================== ME INTELLIGENCE LAYER ====================
 // Phase 1: State → Intent → Music/Glow
@@ -986,9 +1037,13 @@ const session = {
     if (meStateTickInterval) { clearInterval(meStateTickInterval); meStateTickInterval = null; }
     cfm.stop();
 
-    // Log ME session summary
+    // Log ME session summary + save user
     const intentSummary = meIntentGenerator.toJSON();
     console.log('[ME] Session intelligence summary:', JSON.stringify(intentSummary, null, 2));
+    if (currentUserName) {
+      meSaveUser(currentUserName, { peakEnergy: intentSummary.dynamics?.peakEnergy || 0 });
+      console.log(`[ME] Saved session for ${currentUserName}`);
+    }
 
     const elapsed = this._getSessionMinutes();
     const summary = this.log.getSummary();
@@ -1019,6 +1074,13 @@ function beginSession() {
 
   $('v-entry').classList.remove('active');
   $('v-session').classList.add('active');
+
+  // Save user name
+  const nameVal = ($('name-input') || {}).value || '';
+  currentUserName = nameVal.trim().toLowerCase() || null;
+  if (currentUserName) {
+    try { localStorage.setItem('me_last_name', nameVal.trim()); } catch(e) {}
+  }
 
   // Show loading state
   const timer = $('session-timer');
