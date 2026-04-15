@@ -1,0 +1,1040 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#000000">
+<title>M+E</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  background: #050508; color: #fff;
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Helvetica Neue', sans-serif;
+  min-height: 100dvh; -webkit-user-select: none; user-select: none;
+  overflow: hidden;
+}
+
+.view { display: none; position: fixed; inset: 0; }
+.view.active { display: flex; flex-direction: column; align-items: center; justify-content: center; }
+
+/* ===== ENTRY VIEW ===== */
+#v-entry { gap: 48px; }
+
+.brand-mark {
+  font-size: 12px; font-weight: 500; letter-spacing: 10px;
+  color: rgba(255,255,255,0.15); font-family: 'SF Mono', 'Menlo', monospace;
+  text-transform: uppercase;
+}
+
+.energy-select { display: flex; gap: 40px; align-items: center; }
+
+.energy-dot {
+  width: 48px; height: 48px; border-radius: 50%;
+  border: 1px solid rgba(255,255,255,0.08); background: transparent;
+  cursor: pointer; transition: all 0.6s ease; position: relative;
+  -webkit-tap-highlight-color: transparent;
+}
+.energy-dot::after {
+  content: attr(data-label); position: absolute; bottom: -24px; left: 50%;
+  transform: translateX(-50%); font-size: 10px; letter-spacing: 2px;
+  color: rgba(255,255,255,0.1); white-space: nowrap;
+}
+.energy-dot:hover { border-color: rgba(255,255,255,0.15); }
+.energy-dot.selected {
+  border-color: rgba(255,255,255,0.25);
+  background: radial-gradient(circle, rgba(255,255,255,0.06) 0%, transparent 70%);
+  box-shadow: 0 0 30px rgba(255,255,255,0.03);
+}
+
+.duration-toggle {
+  display: flex; gap: 24px; font-size: 11px; letter-spacing: 2px;
+  color: rgba(255,255,255,0.1);
+}
+.dur-opt {
+  cursor: pointer; padding: 6px 16px; border-radius: 20px;
+  border: 1px solid transparent; transition: all 0.3s;
+  -webkit-tap-highlight-color: transparent;
+}
+.dur-opt.selected {
+  color: rgba(255,255,255,0.3); border-color: rgba(255,255,255,0.08);
+}
+
+#begin-btn {
+  padding: 14px 48px; border: 1px solid rgba(255,255,255,0.06);
+  border-radius: 28px; background: transparent; color: rgba(255,255,255,0.12);
+  font-size: 13px; letter-spacing: 4px; cursor: pointer;
+  transition: all 0.5s ease; opacity: 0; pointer-events: none;
+  -webkit-tap-highlight-color: transparent;
+}
+#begin-btn.ready {
+  opacity: 1; pointer-events: auto;
+  color: rgba(255,255,255,0.3); border-color: rgba(255,255,255,0.1);
+}
+#begin-btn.ready:hover {
+  color: rgba(255,255,255,0.5); border-color: rgba(255,255,255,0.2);
+}
+
+/* ===== SESSION VIEW ===== */
+#v-session { cursor: default; }
+
+.glow {
+  position: fixed; top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+  width: 300px; height: 300px; border-radius: 50%;
+  background: radial-gradient(circle, hsla(220, 60%, 40%, 0.04) 0%, transparent 70%);
+  transition: all 4s ease; pointer-events: none;
+  filter: blur(40px);
+}
+
+.session-brand {
+  position: fixed; top: 32px; left: 50%; transform: translateX(-50%);
+  font-size: 10px; font-weight: 500; letter-spacing: 8px;
+  color: rgba(255,255,255,0.06); font-family: 'SF Mono', 'Menlo', monospace;
+  pointer-events: none; z-index: 2;
+}
+
+.track-reveal {
+  position: fixed; bottom: 48px; left: 50%; transform: translateX(-50%);
+  text-align: center; opacity: 0; transition: opacity 0.5s ease;
+  pointer-events: none; z-index: 2;
+}
+.track-reveal.visible { opacity: 1; }
+.track-reveal .tr-title {
+  font-size: 14px; font-weight: 400; color: rgba(255,255,255,0.4);
+  white-space: nowrap; max-width: 80vw; overflow: hidden; text-overflow: ellipsis;
+}
+.track-reveal .tr-artist {
+  font-size: 11px; color: rgba(255,255,255,0.15); margin-top: 4px;
+}
+.track-reveal .tr-meta {
+  font-size: 9px; color: rgba(255,255,255,0.08); margin-top: 8px;
+  font-family: 'SF Mono', monospace; letter-spacing: 1px;
+}
+
+.session-timer {
+  position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%);
+  font-size: 10px; color: rgba(255,255,255,0.06);
+  font-family: 'SF Mono', monospace; font-variant-numeric: tabular-nums;
+  pointer-events: none; z-index: 2;
+}
+
+/* Player hidden off-screen for audio-only */
+.player-hidden {
+  position: fixed; top: -9999px; left: -9999px;
+  width: 320px; height: 180px; overflow: hidden;
+}
+
+/* End session — barely visible bottom-right */
+#end-btn {
+  position: fixed; bottom: 12px; right: 16px;
+  background: none; border: none; color: rgba(255,255,255,0.15);
+  font-size: 10px; letter-spacing: 2px; cursor: pointer;
+  font-family: 'SF Mono', monospace; z-index: 3;
+  -webkit-tap-highlight-color: transparent;
+}
+#end-btn:hover { color: rgba(255,255,255,0.1); }
+
+/* ===== RECEIPT VIEW ===== */
+#v-receipt { gap: 32px; }
+
+.receipt-time {
+  font-size: 56px; font-weight: 200; color: rgba(255,255,255,0.7);
+  font-variant-numeric: tabular-nums;
+}
+.receipt-label {
+  font-size: 10px; letter-spacing: 4px; color: rgba(255,255,255,0.1);
+}
+.receipt-line {
+  font-size: 12px; color: rgba(255,255,255,0.2);
+  font-family: 'SF Mono', monospace; letter-spacing: 1px;
+  text-align: center; line-height: 1.8;
+}
+#receipt-close {
+  padding: 12px 40px; border: 1px solid rgba(255,255,255,0.06);
+  border-radius: 24px; background: transparent;
+  color: rgba(255,255,255,0.15); font-size: 12px; letter-spacing: 3px;
+  cursor: pointer; margin-top: 16px;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* ===== HIDDEN CAMERA (face detection runs invisibly) ===== */
+.camera-hidden { position: fixed; top: -9999px; left: -9999px; width: 1px; height: 1px; overflow: hidden; }
+
+/* ===== ME DEBUG OVERLAY (toggle with D key) ===== */
+.me-debug {
+  position: fixed; top: 12px; left: 12px; z-index: 100;
+  background: rgba(0,0,0,0.85); border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 8px; padding: 12px 16px; max-width: 320px;
+  font-family: 'SF Mono', 'Menlo', monospace; font-size: 10px;
+  color: rgba(255,255,255,0.5); line-height: 1.6;
+  display: none; pointer-events: none;
+}
+.me-debug.visible { display: block; }
+.me-debug .label { color: rgba(255,255,255,0.25); text-transform: uppercase; letter-spacing: 2px; font-size: 8px; margin-top: 8px; }
+.me-debug .label:first-child { margin-top: 0; }
+.me-debug .value { color: rgba(255,255,255,0.7); }
+.me-debug .intent-type { color: #8be9fd; font-weight: 600; font-size: 12px; }
+.me-debug .intent-reason { color: rgba(255,255,255,0.4); font-style: italic; }
+.me-debug .dim { color: rgba(255,255,255,0.2); }
+</style>
+</head>
+<body>
+
+<!-- ===== ENTRY ===== -->
+<div id="v-entry" class="view active">
+  <div class="brand-mark">M + E</div>
+  <div class="energy-select">
+    <div class="energy-dot" data-energy="low" data-label="LOW" onclick="selectEnergy(this)"></div>
+    <div class="energy-dot" data-energy="mid" data-label="MID" onclick="selectEnergy(this)"></div>
+    <div class="energy-dot" data-energy="high" data-label="HIGH" onclick="selectEnergy(this)"></div>
+  </div>
+  <div class="duration-toggle">
+    <span class="dur-opt" data-dur="15" onclick="selectDuration(this)">15 MIN</span>
+    <span class="dur-opt selected" data-dur="30" onclick="selectDuration(this)">30 MIN</span>
+  </div>
+  <button id="begin-btn" onclick="beginSession()">BEGIN</button>
+</div>
+
+<!-- ===== SESSION ===== -->
+<div id="v-session" class="view">
+  <div class="glow" id="glow"></div>
+  <div class="session-brand">M + E</div>
+  <div class="track-reveal" id="track-reveal">
+    <div class="tr-title" id="tr-title"></div>
+    <div class="tr-artist" id="tr-artist"></div>
+    <div class="tr-meta" id="tr-meta"></div>
+  </div>
+  <div class="session-timer" id="session-timer">00:00</div>
+  <button id="end-btn" onclick="endSession()">END</button>
+  <div class="player-hidden">
+    <div id="ytPlayerA"></div>
+    <div id="ytPlayerB"></div>
+  </div>
+  <!-- Hidden camera for face detection -->
+  <div class="camera-hidden">
+    <video id="cam" autoplay playsinline muted></video>
+    <canvas id="cam-canvas"></canvas>
+  </div>
+  <!-- ME Debug Overlay (D key toggles) -->
+  <div class="me-debug" id="me-debug">
+    <div class="label">SIGNAL</div>
+    <div id="dbg-signal" class="dim">waiting...</div>
+    <div class="label">STATE</div>
+    <div id="dbg-state" class="dim">—</div>
+    <div class="label">INTENT</div>
+    <div id="dbg-intent" class="intent-type">—</div>
+    <div id="dbg-intent-reason" class="intent-reason"></div>
+    <div class="label">MUSIC TRANSLATION</div>
+    <div id="dbg-music" class="dim">—</div>
+    <div class="label">DYNAMICS</div>
+    <div id="dbg-dynamics" class="dim">—</div>
+  </div>
+</div>
+
+<!-- ===== RECEIPT ===== -->
+<div id="v-receipt" class="view">
+  <div class="brand-mark">M + E</div>
+  <div class="receipt-time" id="receipt-time">--:--</div>
+  <div class="receipt-label">MINUTES</div>
+  <div class="receipt-line" id="receipt-line"></div>
+  <button id="receipt-close" onclick="location.reload()">DONE</button>
+</div>
+
+<!-- ===== SCRIPTS ===== -->
+<script src="https://www.youtube.com/iframe_api"></script>
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh@0.4.1633559619/face_mesh.js" crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils@0.3.1632432234/camera_utils.js" crossorigin="anonymous"></script>
+<script src="track_data.js"></script>
+<script src="engine.js"></script>
+
+<script>
+// ============================================================
+// EDDIE DEMO — The Room Adjusts
+// Reuses: TrackRepository (engine.js), TRACK_REPOSITORY_DATA (track_data.js)
+// ============================================================
+
+const $ = id => document.getElementById(id);
+
+// ==================== STATE ====================
+let selectedEnergy = null;   // 'low' | 'mid' | 'high'
+let selectedDuration = 30;   // minutes
+let sessionActive = false;
+let sessionStartTime = null;
+
+// ==================== ME INTELLIGENCE LAYER ====================
+// Phase 1: State → Intent → Music/Glow
+const meCalibrator = new Calibrator({ calibrationDuration: 120000 }); // 2 min
+const meStateEstimator = new StateEstimator(meCalibrator);
+const meFaceAnalyzer = new FaceAnalyzer();
+const meIntentGenerator = new IntentGenerator();
+let meCurrentIntent = null;
+let meDebugVisible = false;
+let meStateTickInterval = null;
+let meFaceMesh = null;
+let meCameraRunning = false;
+
+// Start invisible camera + face detection
+function meStartCamera() {
+  const videoEl = $('cam');
+  if (!videoEl || !window.FaceMesh) {
+    console.warn('[ME] MediaPipe FaceMesh not loaded — running without biometrics');
+    return;
+  }
+
+  meFaceMesh = new FaceMesh({
+    locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh@0.4.1633559619/${file}`
+  });
+  meFaceMesh.setOptions({
+    maxNumFaces: 1,
+    refineLandmarks: true,  // 478 landmarks (iris tracking)
+    minDetectionConfidence: 0.5,
+    minTrackingConfidence: 0.5
+  });
+  meFaceMesh.onResults((results) => {
+    if (!sessionActive) return;
+    if (results.multiFaceLandmarks && results.multiFaceLandmarks.length > 0) {
+      const landmarks = results.multiFaceLandmarks[0];
+      const faceData = meFaceAnalyzer.analyze(landmarks);
+      faceData.detectionConfidence = 0.8; // MediaPipe doesn't expose per-frame confidence directly
+      meCalibrator.addFaceData(faceData);
+      meStateEstimator.addFaceData(faceData);
+    }
+  });
+
+  // Start camera with MediaPipe Camera utility
+  if (window.Camera) {
+    const camera = new Camera(videoEl, {
+      onFrame: async () => { if (meFaceMesh && sessionActive) await meFaceMesh.send({ image: videoEl }); },
+      width: 320, height: 240, facingMode: 'user'
+    });
+    camera.start().then(() => {
+      meCameraRunning = true;
+      console.log('[ME] Camera started — face detection running invisibly');
+    }).catch(err => {
+      console.warn('[ME] Camera denied or unavailable:', err.message);
+      meCameraRunning = false;
+    });
+  } else {
+    // Fallback: plain getUserMedia
+    navigator.mediaDevices.getUserMedia({ video: { width: 320, height: 240, facingMode: 'user' } })
+      .then(stream => {
+        videoEl.srcObject = stream;
+        meCameraRunning = true;
+        console.log('[ME] Camera started (fallback mode)');
+        // Manual detection loop
+        const detectLoop = async () => {
+          if (!sessionActive || !meFaceMesh) return;
+          try { await meFaceMesh.send({ image: videoEl }); } catch(e) {}
+          if (sessionActive) setTimeout(detectLoop, 200); // 5fps
+        };
+        videoEl.onloadeddata = () => detectLoop();
+      })
+      .catch(err => {
+        console.warn('[ME] Camera denied:', err.message);
+        meCameraRunning = false;
+      });
+  }
+}
+
+// State estimation tick — runs every 5 seconds
+function meStateTick() {
+  if (!sessionActive) return;
+
+  // Calibrator tick
+  meCalibrator.tick();
+
+  // Get arc context
+  const elapsed = session._getSessionMinutes();
+  const arcEnergy = session.arc ? session.arc.getTargetEnergy(elapsed) : 5;
+
+  // Feed arc target to state estimator (for sparse-signal drift)
+  meStateEstimator._arcTarget = arcEnergy;
+
+  // Estimate state
+  const state = meStateEstimator.estimate({
+    intent: [], // No pre-set intent — ME generates intent FROM state
+    calibrated: meCalibrator.calibrated
+  });
+
+  // Generate intent
+  meCurrentIntent = meIntentGenerator.generate(state, {
+    sessionElapsed: elapsed,
+    arcEnergy: arcEnergy,
+    signalRegime: state.raw?.signalRegime || 'unknown',
+    calibrated: meCalibrator.calibrated
+  });
+
+  // Update debug overlay
+  meUpdateDebug(state, meCurrentIntent, arcEnergy, elapsed);
+}
+
+// Debug overlay update
+function meUpdateDebug(state, intent, arcEnergy, elapsed) {
+  if (!meDebugVisible) return;
+
+  const regime = state.raw?.signalRegime || 'unknown';
+  const calibProg = meCalibrator.calibrated ? 'CALIBRATED' : `${Math.round(meCalibrator.getProgress() * 100)}%`;
+  $('dbg-signal').innerHTML = `${regime} · cal: ${calibProg} · face: ${state.raw?.faceReadings || 0}`;
+
+  $('dbg-state').innerHTML =
+    `E: <span class="value">${state.energy.value.toFixed(2)}</span> (${state.energy.level}) · ` +
+    `I: <span class="value">${state.immersion.value.toFixed(2)}</span> (${state.immersion.level}) · ` +
+    `T: ${state.trajectory.direction}`;
+
+  if (intent) {
+    $('dbg-intent').textContent = intent.type.toUpperCase();
+    $('dbg-intent-reason').textContent = intent.reason;
+
+    const musicParams = meIntentGenerator.translateForMusic(intent, arcEnergy);
+    $('dbg-music').innerHTML = musicParams
+      ? `target E: <span class="value">${musicParams.targetEnergy.toFixed(1)}</span> (arc: ${arcEnergy.toFixed(1)}) · novelty: ${intent.dimensions.novelty}`
+      : 'no change';
+  }
+
+  const dyn = meIntentGenerator.getDynamics();
+  $('dbg-dynamics').innerHTML =
+    `peak: ${dyn.peakEnergy} @ ${dyn.peakTime}min · ` +
+    `warmup: ${dyn.warmupComplete ? dyn.warmupMinutes + 'min' : 'in progress'} · ` +
+    `snaps: ${dyn.minuteSnapshots}`;
+}
+
+// D key toggles debug overlay
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'd' || e.key === 'D') {
+    meDebugVisible = !meDebugVisible;
+    const el = $('me-debug');
+    if (el) el.classList.toggle('visible', meDebugVisible);
+  }
+});
+
+// ==================== ENTRY VIEW ====================
+function selectEnergy(el) {
+  document.querySelectorAll('.energy-dot').forEach(d => d.classList.remove('selected'));
+  el.classList.add('selected');
+  selectedEnergy = el.dataset.energy;
+  $('begin-btn').classList.add('ready');
+}
+
+function selectDuration(el) {
+  document.querySelectorAll('.dur-opt').forEach(d => d.classList.remove('selected'));
+  el.classList.add('selected');
+  selectedDuration = parseInt(el.dataset.dur);
+}
+
+// ==================== ARC ENGINE ====================
+// 7-phase energy curve from the Feel Specification
+// Returns target energy (1-10 scale) at any point in the session
+
+class ArcEngine {
+  constructor(startEnergy, durationMin) {
+    this.duration = durationMin;
+    // Map entry selection to energy band
+    const bands = {
+      low:  { start: 2.5, peak: 6,   end: 1.5 },
+      mid:  { start: 4,   peak: 7.5, end: 3 },
+      high: { start: 6,   peak: 9,   end: 4.5 }
+    };
+    const b = bands[startEnergy] || bands.mid;
+
+    // 7 phases as proportions of session duration
+    // Phase 1: Meet You (0-10%)
+    // Phase 2: Settle In (10-27%)
+    // Phase 3: First Nudge (27-50%)
+    // Phase 4: Ride the Wave (50-73%)
+    // Phase 5: Peak moment (embedded — highest point in phase 4)
+    // Phase 6: Descent (73-90%)
+    // Phase 7: Resolution (90-100%)
+    this.points = [
+      { t: 0,    e: b.start },           // session opens
+      { t: 0.10, e: b.start },           // meet you — hold
+      { t: 0.27, e: b.start + 0.5 },     // settle — barely move
+      { t: 0.40, e: b.start + (b.peak - b.start) * 0.5 }, // nudge — halfway up
+      { t: 0.50, e: b.peak - 1 },        // building
+      { t: 0.62, e: b.peak },            // peak zone
+      { t: 0.73, e: b.peak - 0.5 },      // still riding
+      { t: 0.82, e: b.start + (b.peak - b.start) * 0.4 }, // descent
+      { t: 0.90, e: b.end + 1 },         // winding down
+      { t: 1.00, e: b.end }              // resolution
+    ];
+
+    this.phaseName = [
+      'meet_you', 'meet_you', 'settle_in', 'first_nudge', 'building',
+      'peak', 'riding', 'descent', 'winding_down', 'resolution'
+    ];
+  }
+
+  // Get target energy at a given session minute
+  getTargetEnergy(minutesElapsed) {
+    const p = Math.min(1, minutesElapsed / this.duration);
+    for (let i = 1; i < this.points.length; i++) {
+      if (this.points[i].t >= p) {
+        const prev = this.points[i - 1], curr = this.points[i];
+        const pct = (p - prev.t) / (curr.t - prev.t);
+        return prev.e + pct * (curr.e - prev.e);
+      }
+    }
+    return this.points[this.points.length - 1].e;
+  }
+
+  // Get current phase name
+  getPhase(minutesElapsed) {
+    const p = Math.min(1, minutesElapsed / this.duration);
+    for (let i = this.points.length - 1; i >= 0; i--) {
+      if (p >= this.points[i].t) return this.phaseName[i];
+    }
+    return this.phaseName[0];
+  }
+}
+
+// ==================== TRANSITION LOGGER ====================
+class TransitionLog {
+  constructor() {
+    this.entries = [];
+    this.keyClashes = 0;
+    this.totalTransitions = 0;
+  }
+
+  log(fromTrack, toTrack, reason) {
+    const entry = {
+      time: new Date().toISOString(),
+      from: fromTrack ? { id: fromTrack.id, title: fromTrack.title, camelot: fromTrack.camelot, energy10: fromTrack.energy10 } : null,
+      to: { id: toTrack.id, title: toTrack.title, camelot: toTrack.camelot, energy10: toTrack.energy10 },
+      reason,
+      keyCompatible: true
+    };
+
+    // Check key compatibility
+    if (fromTrack && fromTrack.camelot && toTrack.camelot) {
+      const compatible = TrackRepository.CAMELOT_WHEEL[fromTrack.camelot] || [];
+      entry.keyCompatible = compatible.includes(toTrack.camelot);
+      if (!entry.keyCompatible) this.keyClashes++;
+    }
+
+    this.entries.push(entry);
+    if (fromTrack) this.totalTransitions++;
+    console.log(`[TRANSITION] ${fromTrack ? fromTrack.title : 'START'} → ${toTrack.title} | key: ${entry.keyCompatible ? 'OK' : 'CLASH'} | ${reason.type}`);
+    return entry;
+  }
+
+  getSummary() {
+    return {
+      tracksPlayed: this.entries.length,
+      transitions: this.totalTransitions,
+      keyClashes: this.keyClashes
+    };
+  }
+}
+
+// ==================== CROSSFADE MANAGER ====================
+// Dual YT.Player with sin/cos crossfade — audio only (players hidden)
+const cfm = {
+  players: { A: null, B: null },
+  ready: { A: false, B: false },
+  active: 'A',
+  fading: false,
+  fadeTimer: null,
+  monitorTimer: null,
+  currentTrack: null,     // repo track object for active player
+  trackStartTime: null,   // when current track started playing
+
+  init() {
+    this.players.A = new YT.Player('ytPlayerA', {
+      height: '180', width: '320',
+      playerVars: { autoplay: 0, controls: 0, modestbranding: 1, rel: 0, playsinline: 1, iv_load_policy: 3, fs: 0 },
+      events: {
+        onReady: () => { this.ready.A = true; console.log('[CFM] Player A ready'); },
+        onStateChange: (e) => this._onState('A', e)
+      }
+    });
+    this.players.B = new YT.Player('ytPlayerB', {
+      height: '180', width: '320',
+      playerVars: { autoplay: 0, controls: 0, modestbranding: 1, rel: 0, playsinline: 1, iv_load_policy: 3, fs: 0 },
+      events: {
+        onReady: () => { this.ready.B = true; console.log('[CFM] Player B ready'); },
+        onStateChange: (e) => this._onState('B', e)
+      }
+    });
+    this.monitorTimer = setInterval(() => this._monitor(), 1000);
+  },
+
+  _ap() { return this.players[this.active]; },
+  _ip() { return this.players[this.active === 'A' ? 'B' : 'A']; },
+
+  getPlayerState() { try { return this._ap().getPlayerState(); } catch(e) { return -1; } },
+  getCurrentTime() { try { return this._ap().getCurrentTime(); } catch(e) { return 0; } },
+  getDuration() { try { return this._ap().getDuration(); } catch(e) { return 0; } },
+
+  play(track, seekTime) {
+    if (!this.ready[this.active]) return;
+    this.currentTrack = track;
+    this.trackStartTime = Date.now();
+    const p = this._ap();
+    try {
+      if (seekTime > 0) {
+        p.loadVideoById({ videoId: track.id, startSeconds: seekTime });
+      } else {
+        p.loadVideoById(track.id);
+      }
+      p.setVolume(100);
+    } catch(e) { console.error('[CFM] play error', e); }
+  },
+
+  _onState(which, event) {
+    if (which !== this.active || this.fading) return;
+    if (event.data === YT.PlayerState.PLAYING) {
+      session.onTrackPlaying();
+    } else if (event.data === YT.PlayerState.ENDED) {
+      session.onTrackEnded();
+    }
+  },
+
+  _monitor() {
+    if (this.fading || !this.currentTrack) return;
+    const p = this._ap();
+    if (!p || !this.ready[this.active]) return;
+    try {
+      if (p.getPlayerState() !== YT.PlayerState.PLAYING) return;
+      const ct = p.getCurrentTime();
+      const dur = p.getDuration();
+      if (!dur || dur <= 0) return;
+
+      // Minimum play time: 90 seconds
+      const elapsed = (Date.now() - this.trackStartTime) / 1000;
+      if (elapsed < 90) return;
+
+      // Use mix-out point if available, else duration - 10
+      const mixOut = this.currentTrack.mixOut;
+      const fadeStart = (mixOut && mixOut > 16) ? mixOut - 8 : dur - 10;
+
+      if (ct >= fadeStart && ct < dur - 1) {
+        session.onReadyForNext();
+      }
+    } catch(e) {}
+  },
+
+  crossfadeTo(track, seekTime) {
+    if (this.fading) return;
+    const inKey = this.active === 'A' ? 'B' : 'A';
+    if (!this.ready[inKey]) return;
+
+    this.fading = true;
+    const ip = this._ip();
+
+    ip.setVolume(0);
+    if (seekTime > 0) {
+      ip.loadVideoById({ videoId: track.id, startSeconds: seekTime });
+    } else {
+      ip.loadVideoById(track.id);
+    }
+
+    // Wait for inactive player to start, then fade
+    let waited = 0;
+    const wid = setInterval(() => {
+      waited += 250;
+      try {
+        if (ip.getPlayerState() === YT.PlayerState.PLAYING) {
+          clearInterval(wid);
+          this._fade(track);
+        } else if (waited > 5000) {
+          clearInterval(wid);
+          this.fading = false;
+          // Fallback: hard cut
+          session.onTrackEnded();
+        }
+      } catch(e) { clearInterval(wid); this.fading = false; }
+    }, 250);
+  },
+
+  _fade(nextTrack) {
+    const ap = this._ap();
+    const ip = this._ip();
+    const steps = 40, ms = 200; // 8s crossfade
+    let step = 0;
+    const vol0 = 100;
+
+    this.fadeTimer = setInterval(() => {
+      step++;
+      const p = step / steps;
+      try {
+        ap.setVolume(Math.round(vol0 * Math.cos(p * Math.PI / 2)));
+        ip.setVolume(Math.round(100 * Math.sin(p * Math.PI / 2)));
+      } catch(e) {}
+
+      if (step >= steps) {
+        clearInterval(this.fadeTimer);
+        this.fadeTimer = null;
+        this._complete(nextTrack);
+      }
+    }, ms);
+  },
+
+  _complete(nextTrack) {
+    try { this._ap().stopVideo(); } catch(e) {}
+    this.active = this.active === 'A' ? 'B' : 'A';
+    this.fading = false;
+    this.currentTrack = nextTrack;
+    this.trackStartTime = Date.now();
+    session.onTrackPlaying();
+    console.log(`[CFM] Crossfade complete → Player ${this.active}`);
+  },
+
+  stop() {
+    if (this.fadeTimer) { clearInterval(this.fadeTimer); this.fadeTimer = null; }
+    if (this.monitorTimer) { clearInterval(this.monitorTimer); this.monitorTimer = null; }
+    try { this.players.A.stopVideo(); } catch(e) {}
+    try { this.players.B.stopVideo(); } catch(e) {}
+    this.fading = false;
+  }
+};
+
+// ==================== GLOW ENGINE ====================
+// Maps current track energy to ambient glow
+const glowEngine = {
+  currentHue: 220,
+  currentSize: 300,
+  currentOpacity: 0.04,
+
+  update(energy10) {
+    // energy10: 1-10 scale
+    // Hue: 220 (cool blue/indigo) → 340 (warm pink/magenta) as energy rises
+    const hue = 220 + (Math.min(10, Math.max(1, energy10)) - 1) * (120 / 9);
+    // Size: 300px → 650px
+    const size = 300 + (energy10 - 1) * (350 / 9);
+    // Opacity: 0.03 → 0.09
+    const opacity = 0.03 + (energy10 - 1) * (0.06 / 9);
+
+    const glow = $('glow');
+    if (!glow) return;
+    glow.style.background = `radial-gradient(circle, hsla(${Math.round(hue)}, 60%, 40%, ${opacity.toFixed(3)}) 0%, transparent 70%)`;
+    glow.style.width = `${Math.round(size)}px`;
+    glow.style.height = `${Math.round(size)}px`;
+  },
+
+  // Get energy at current playback position from the track's curve
+  getTrackEnergy(track, playbackTime) {
+    if (!track || !track.curve || track.curve.length < 2) return track ? track.energy10 || 5 : 5;
+    // curve is [[t, e], [t, e], ...] — t in seconds, e in raw RMS
+    const curve = track.curve;
+    for (let i = 1; i < curve.length; i++) {
+      if (curve[i][0] >= playbackTime) {
+        const prev = curve[i - 1], curr = curve[i];
+        const pct = (playbackTime - prev[0]) / (curr[0] - prev[0]);
+        const rawE = prev[1] + pct * (curr[1] - prev[1]);
+        return rawEnergyTo10(rawE);
+      }
+    }
+    return rawEnergyTo10(curve[curve.length - 1][1]);
+  }
+};
+
+function rawEnergyTo10(raw) {
+  if (!raw || raw <= 0) return 1;
+  const db = 20 * Math.log10(raw);
+  return Math.max(1, Math.min(10, 1 + (db + 34) * (9 / 26)));
+}
+
+// ==================== SESSION CONTROLLER ====================
+const session = {
+  arc: null,
+  repo: null,
+  log: null,
+  timerInterval: null,
+  glowInterval: null,
+  playedIds: [],
+  recentArtists: [],
+  tracksPlayed: 0,
+
+  start(energy, durationMin) {
+    this.arc = new ArcEngine(energy, durationMin);
+    this.log = new TransitionLog();
+    this.playedIds = [];
+    this.recentArtists = [];
+    this.tracksPlayed = 0;
+
+    // Initialize TrackRepository
+    this.repo = new TrackRepository();
+    if (window.TRACK_REPOSITORY_DATA) {
+      this.repo.load(window.TRACK_REPOSITORY_DATA);
+      console.log(`[SESSION] Loaded ${this.repo.tracks.length} tracks`);
+    }
+
+    sessionActive = true;
+    sessionStartTime = Date.now();
+
+    // === ME INTELLIGENCE LAYER INIT ===
+    meCalibrator.start();
+    meStartCamera();
+    // State tick every 5 seconds
+    meStateTickInterval = setInterval(meStateTick, 5000);
+    console.log('[ME] Intelligence layer initialized — calibrating (2 min)');
+
+    // Start timer display
+    this.timerInterval = setInterval(() => this._updateTimer(), 1000);
+
+    // Start glow update (every 2 seconds)
+    this.glowInterval = setInterval(() => this._updateGlow(), 2000);
+
+    // Select and play first track
+    this._selectAndPlay(null);
+  },
+
+  _getSessionMinutes() {
+    if (!sessionStartTime) return 0;
+    return (Date.now() - sessionStartTime) / 60000;
+  },
+
+  _updateTimer() {
+    const elapsed = this._getSessionMinutes();
+    const mins = Math.floor(elapsed);
+    const secs = Math.floor((elapsed - mins) * 60);
+    $('session-timer').textContent = `${String(mins).padStart(2,'0')}:${String(secs).padStart(2,'0')}`;
+
+    // Check if session should end
+    if (elapsed >= selectedDuration) {
+      this.end();
+    }
+  },
+
+  _updateGlow() {
+    if (!cfm.currentTrack || !sessionActive) return;
+
+    // === ME: Glow follows YOUR state, not the track's energy ===
+    if (meCurrentIntent && meCalibrator.calibrated) {
+      const state = meStateEstimator.state;
+      const glowParams = meIntentGenerator.translateForGlow(meCurrentIntent, state.energy.value);
+      if (glowParams) {
+        glowEngine.update(glowParams.energy);
+        // Apply transition speed via CSS
+        const glow = $('glow');
+        if (glow) glow.style.transition = `all ${glowParams.transitionMs}ms ease`;
+        return;
+      }
+    }
+
+    // Fallback: track energy drives glow (pre-calibration or no signal)
+    const ct = cfm.getCurrentTime();
+    const energy = glowEngine.getTrackEnergy(cfm.currentTrack, ct);
+    glowEngine.update(energy);
+  },
+
+  _selectAndPlay(fromTrack) {
+    const elapsed = this._getSessionMinutes();
+    const arcEnergy = this.arc.getTargetEnergy(elapsed);
+    const phase = this.arc.getPhase(elapsed);
+    const remaining = selectedDuration - elapsed;
+
+    // === ME INTENT-DRIVEN SELECTION ===
+    // If intent says "hold" or "don't change", extend current track
+    if (meCurrentIntent && meCurrentIntent.type === 'hold' && fromTrack) {
+      console.log(`[ME] Intent: HOLD — extending current track (flow state)`);
+      return; // Don't change track
+    }
+
+    // Translate intent into music parameters (arc is fallback)
+    let targetEnergy = arcEnergy;
+    let intentReason = 'arc';
+    if (meCurrentIntent && meCurrentIntent.type !== 'arc_fallback') {
+      const musicParams = meIntentGenerator.translateForMusic(meCurrentIntent, arcEnergy);
+      if (musicParams) {
+        targetEnergy = musicParams.targetEnergy;
+        intentReason = musicParams.reason;
+      }
+    }
+
+    let track = null;
+    let reason = {};
+
+    // Session ending — pick outro track
+    if (remaining < 4) {
+      const outros = this.repo.getOutroTracks(this.playedIds);
+      if (outros.length > 0) {
+        track = outros[0];
+        reason = { type: 'outro', phase, targetEnergy: Math.round(targetEnergy * 10) / 10 };
+      }
+    }
+
+    // Intent-driven (or arc-fallback) selection
+    if (!track) {
+      const bpmRange = fromTrack && fromTrack.bpm > 0
+        ? [fromTrack.bpm - 8, fromTrack.bpm + 8]
+        : null;
+
+      // If intent says high novelty, widen genre constraints
+      const intentNovelty = meCurrentIntent?.dimensions?.novelty || 'moderate';
+      const genreFilter = (intentNovelty === 'high' || intentNovelty === 'none')
+        ? null
+        : (fromTrack ? fromTrack.genre : null);
+
+      // If intent says low novelty, tighten BPM range
+      const adjustedBpm = (intentNovelty === 'low' && bpmRange)
+        ? [bpmRange[0] + 2, bpmRange[1] - 2]  // Tighter BPM = more similar feel
+        : bpmRange;
+
+      const candidates = this.repo.query({
+        targetEnergy,
+        bpmRange: adjustedBpm,
+        camelotKey: fromTrack ? fromTrack.camelot : null,
+        currentGenre: genreFilter,
+        excludeIds: this.playedIds,
+        excludeArtists: this.recentArtists,
+        maxResults: 5
+      });
+
+      if (candidates.length > 0) {
+        track = candidates[0];
+        reason = { type: 'intent_match', phase, targetEnergy: Math.round(targetEnergy * 10) / 10,
+                   intent: meCurrentIntent?.type || 'arc', intentReason };
+      } else {
+        // Fallback: widen constraints
+        const fallback = this.repo.query({
+          targetEnergy,
+          excludeIds: this.playedIds,
+          maxResults: 5
+        });
+        if (fallback.length > 0) {
+          track = fallback[0];
+          reason = { type: 'fallback_wide', phase, targetEnergy: Math.round(targetEnergy * 10) / 10, intent: meCurrentIntent?.type || 'arc' };
+        } else if (this.repo.tracks.length > 0) {
+          // Last resort: reset exclusions
+          this.playedIds = [];
+          this.recentArtists = [];
+          const reset = this.repo.query({ targetEnergy, maxResults: 5 });
+          track = reset[0] || this.repo.tracks[0];
+          reason = { type: 'reset', phase };
+        }
+      }
+    }
+
+    if (!track) { console.error('[SESSION] No track available'); return; }
+
+    // Get section-aware seek time
+    const seekTime = this.repo.getSectionSeek(track.id, targetEnergy);
+
+    // Log the transition
+    this.log.log(fromTrack, track, reason);
+
+    // Track bookkeeping
+    this.playedIds.push(track.id);
+    this.recentArtists.push((track.artist || '').toLowerCase());
+    if (this.recentArtists.length > 4) this.recentArtists.shift();
+    this.tracksPlayed++;
+
+    // Play or crossfade
+    if (!fromTrack) {
+      cfm.play(track, seekTime);
+    } else {
+      cfm.crossfadeTo(track, seekTime);
+    }
+
+    const intentLabel = meCurrentIntent ? `${meCurrentIntent.type}(${meCurrentIntent.confidence.toFixed(2)})` : 'arc';
+    console.log(`[ME] Playing: ${track.title} by ${track.artist} | seek:${Math.round(seekTime)}s | E:${track.energy10?.toFixed(1)} | target:${targetEnergy.toFixed(1)} (arc:${arcEnergy.toFixed(1)}) | intent:${intentLabel} | phase:${phase}`);
+  },
+
+  onTrackPlaying() {
+    // Update track reveal data (hidden until tapped)
+    const t = cfm.currentTrack;
+    if (t) {
+      $('tr-title').textContent = t.title || '';
+      $('tr-artist').textContent = t.artist || '';
+      const phase = this.arc.getPhase(this._getSessionMinutes());
+      $('tr-meta').textContent = `${t.camelot || ''} · ${Math.round(t.bpm || 0)} BPM · ${phase}`;
+    }
+  },
+
+  onTrackEnded() {
+    if (!sessionActive) return;
+    this._selectAndPlay(cfm.currentTrack);
+  },
+
+  onReadyForNext() {
+    if (!sessionActive) return;
+    const from = cfm.currentTrack;
+    this._selectAndPlay(from);
+  },
+
+  end() {
+    sessionActive = false;
+    if (this.timerInterval) { clearInterval(this.timerInterval); this.timerInterval = null; }
+    if (this.glowInterval) { clearInterval(this.glowInterval); this.glowInterval = null; }
+    if (meStateTickInterval) { clearInterval(meStateTickInterval); meStateTickInterval = null; }
+    cfm.stop();
+
+    // Log ME session summary
+    const intentSummary = meIntentGenerator.toJSON();
+    console.log('[ME] Session intelligence summary:', JSON.stringify(intentSummary, null, 2));
+
+    const elapsed = this._getSessionMinutes();
+    const summary = this.log.getSummary();
+
+    // Show receipt
+    $('v-session').classList.remove('active');
+    $('v-receipt').classList.add('active');
+
+    const mins = Math.floor(elapsed);
+    const secs = Math.floor((elapsed - mins) * 60);
+    $('receipt-time').textContent = `${mins}:${String(secs).padStart(2,'0')}`;
+    $('receipt-line').innerHTML =
+      `${summary.tracksPlayed} tracks · ${summary.transitions} transitions · ${summary.keyClashes} key clashes`;
+
+    // Log full transition history to console
+    console.log('[SESSION] Full transition log:', JSON.stringify(this.log.entries, null, 2));
+    try { localStorage.setItem('me_eddie_last_session', JSON.stringify({
+      time: new Date().toISOString(), duration: elapsed, energy: selectedEnergy,
+      summary, transitions: this.log.entries
+    })); } catch(e) {}
+  }
+};
+
+// ==================== UI WIRING ====================
+
+function beginSession() {
+  if (!selectedEnergy) return;
+
+  $('v-entry').classList.remove('active');
+  $('v-session').classList.add('active');
+
+  // Wait for YT players to be ready
+  const waitForPlayers = setInterval(() => {
+    if (cfm.ready.A && cfm.ready.B) {
+      clearInterval(waitForPlayers);
+      session.start(selectedEnergy, selectedDuration);
+    }
+  }, 200);
+
+  // Timeout after 10s
+  setTimeout(() => {
+    clearInterval(waitForPlayers);
+    if (!sessionActive && cfm.ready.A) {
+      session.start(selectedEnergy, selectedDuration);
+    }
+  }, 10000);
+}
+
+function endSession() {
+  if (sessionActive) session.end();
+}
+
+// Tap-to-reveal track info
+let revealTimeout = null;
+document.addEventListener('click', (e) => {
+  if (!sessionActive) return;
+  if (e.target.id === 'end-btn') return;
+
+  const reveal = $('track-reveal');
+  reveal.classList.add('visible');
+  if (revealTimeout) clearTimeout(revealTimeout);
+  revealTimeout = setTimeout(() => {
+    reveal.classList.remove('visible');
+  }, 3000);
+});
+
+// YouTube API ready callback
+window.onYouTubeIframeAPIReady = function() {
+  console.log('[YT] API ready');
+  cfm.init();
+};
+</script>
+</body>
+</html>
