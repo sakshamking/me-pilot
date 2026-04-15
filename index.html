@@ -228,6 +228,8 @@ body {
     <div id="dbg-intent-reason" class="intent-reason"></div>
     <div class="label">MUSIC TRANSLATION</div>
     <div id="dbg-music" class="dim">—</div>
+    <div class="label">FILTER</div>
+    <div id="dbg-filter" class="dim">—</div>
     <div class="label">DYNAMICS</div>
     <div id="dbg-dynamics" class="dim">—</div>
   </div>
@@ -370,22 +372,34 @@ function meStateTick() {
     calibrated: meCalibrator.calibrated
   });
 
-  // Update debug overlay
-  meUpdateDebug(state, meCurrentIntent, arcEnergy, elapsed);
+  // Update debug overlay — pass BOTH raw and filtered
+  meUpdateDebug(state, rawState, meCurrentIntent, arcEnergy, elapsed);
 }
 
 // Debug overlay update
-function meUpdateDebug(state, intent, arcEnergy, elapsed) {
+function meUpdateDebug(state, rawState, intent, arcEnergy, elapsed) {
   if (!meDebugVisible) return;
 
   const regime = state.raw?.signalRegime || 'unknown';
   const calibProg = meCalibrator.calibrated ? 'CALIBRATED' : `${Math.round(meCalibrator.getProgress() * 100)}%`;
   $('dbg-signal').innerHTML = `${regime} · cal: ${calibProg} · face: ${state.raw?.faceReadings || 0}`;
 
+  // Show RAW reads (F1 precision) vs CONFIRMED state (filtered)
+  const filterInfo = meSignalFilter.toJSON();
+  const rawE = rawState.energy.value.toFixed(2);
+  const rawI = rawState.immersion.value.toFixed(2);
+  const rawT = rawState.trajectory.direction;
+  const confE = state.energy.value.toFixed(2);
+  const confI = state.immersion.value.toFixed(2);
+
   $('dbg-state').innerHTML =
-    `E: <span class="value">${state.energy.value.toFixed(2)}</span> (${state.energy.level}) · ` +
-    `I: <span class="value">${state.immersion.value.toFixed(2)}</span> (${state.immersion.level}) · ` +
-    `T: ${state.trajectory.direction}`;
+    `<span style="color:rgba(255,255,255,0.35)">RAW  E:${rawE} (${rawState.energy.level}) · I:${rawI} (${rawState.immersion.level}) · T:${rawT}</span><br>` +
+    `LIVE E: <span class="value">${confE}</span> (${state.energy.level}) · ` +
+    `I: <span class="value">${confI}</span> (${state.immersion.level}) · ` +
+    `T: ${state.trajectory.direction}` +
+    (filterInfo.pending.energy || filterInfo.pending.immersion || filterInfo.pending.trajectory
+      ? `<br><span style="color:#ff3b5c;font-size:9px">PENDING: ${[filterInfo.pending.energy, filterInfo.pending.immersion, filterInfo.pending.trajectory].filter(Boolean).join(' · ')}</span>`
+      : '');
 
   if (intent) {
     $('dbg-intent').textContent = intent.type.toUpperCase();
@@ -396,6 +410,8 @@ function meUpdateDebug(state, intent, arcEnergy, elapsed) {
       ? `target E: <span class="value">${musicParams.targetEnergy.toFixed(1)}</span> (arc: ${arcEnergy.toFixed(1)}) · novelty: ${intent.dimensions.novelty}`
       : 'no change';
   }
+
+  $('dbg-filter').innerHTML = `filtered: ${filterInfo.stats.filtered} · confirmed: ${filterInfo.stats.confirmed}`;
 
   const dyn = meIntentGenerator.getDynamics();
   $('dbg-dynamics').innerHTML =
