@@ -214,6 +214,7 @@ body {
   </div>
   <div class="session-timer" id="session-timer">00:00</div>
   <button id="end-btn" onclick="endSession()">END</button>
+  <button id="dbg-btn" onclick="meDebugVisible=!meDebugVisible;document.getElementById('me-debug').classList.toggle('visible',meDebugVisible)" style="position:fixed;bottom:12px;left:12px;background:transparent;border:1px solid rgba(255,255,255,0.06);color:rgba(255,255,255,0.15);font-size:9px;letter-spacing:2px;padding:4px 10px;border-radius:12px;cursor:pointer;z-index:100;font-family:inherit">DEBUG</button>
   <div class="player-hidden">
     <div id="ytPlayerA"></div>
     <div id="ytPlayerB"></div>
