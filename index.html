@@ -548,7 +548,7 @@ const cfm = {
       height: '180', width: '320',
       playerVars: { autoplay: 0, controls: 0, modestbranding: 1, rel: 0, playsinline: 1, iv_load_policy: 3, fs: 0 },
       events: {
-        onReady: () => { this.ready.A = true; console.log('[CFM] Player A ready'); },
+        onReady: () => { this.ready.A = true; console.log('[CFM] Player A ready'); if (this._pendingTrack) this.play(this._pendingTrack.track, this._pendingTrack.seekTime); },
         onStateChange: (e) => this._onState('A', e)
       }
     });
@@ -571,10 +571,14 @@ const cfm = {
   getDuration() { try { return this._ap().getDuration(); } catch(e) { return 0; } },
 
   play(track, seekTime) {
-    if (!this.ready[this.active]) return;
     this.currentTrack = track;
     this.trackStartTime = Date.now();
     const p = this._ap();
+    if (!p || typeof p.loadVideoById !== 'function') {
+      console.warn('[CFM] Player not ready — queuing track for retry');
+      this._pendingTrack = { track, seekTime };
+      return;
+    }
     try {
       if (seekTime > 0) {
         p.loadVideoById({ videoId: track.id, startSeconds: seekTime });
@@ -582,6 +586,7 @@ const cfm = {
         p.loadVideoById(track.id);
       }
       p.setVolume(100);
+      this._pendingTrack = null;
     } catch(e) { console.error('[CFM] play error', e); }
   },
 
@@ -1003,29 +1008,41 @@ function beginSession() {
   const timer = $('session-timer');
   if (timer) timer.textContent = 'LOADING...';
 
+  // If YouTube API loaded but cfm never initialized (late load), init now
+  if (window.YT && window.YT.Player && !cfm.ready.A && !cfm.players.A) {
+    console.log('[EDDIE] Late YT init — calling cfm.init() now');
+    cfm.init();
+  }
+
   // Wait for YT players to be ready
+  let attempts = 0;
   const waitForPlayers = setInterval(() => {
+    attempts++;
+    // Retry init every 2s if still not ready
+    if (attempts % 10 === 0 && window.YT && window.YT.Player && !cfm.ready.A) {
+      console.log('[EDDIE] Retrying cfm.init()...');
+      try { cfm.init(); } catch(e) {}
+    }
     if (cfm.ready.A && cfm.ready.B) {
       clearInterval(waitForPlayers);
       session.start(selectedEnergy, selectedDuration);
     }
   }, 200);
 
-  // Timeout after 8s — start with whatever is ready
+  // Timeout after 12s — start with whatever is ready
   setTimeout(() => {
     clearInterval(waitForPlayers);
     if (!sessionActive) {
       if (cfm.ready.A || cfm.ready.B) {
         session.start(selectedEnergy, selectedDuration);
       } else {
-        // YouTube failed completely — show error
-        if (timer) timer.textContent = 'YT FAILED';
-        console.error('[EDDIE] YouTube players not ready after 8s. Check: network, ad blocker, YT iframe API');
-        // Try to force-start anyway — camera and state estimation still work
+        console.error('[EDDIE] YouTube players not ready after 12s. Check: network, ad blocker, YT iframe API');
+        if (timer) timer.textContent = 'YT FAILED — check console';
+        // Start anyway for camera/state — music won't play
         session.start(selectedEnergy, selectedDuration);
       }
     }
-  }, 8000);
+  }, 12000);
 }
 
 function endSession() {
