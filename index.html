@@ -458,6 +458,8 @@ body {
   <div id="dbg-analytics"></div>
   <div class="dbg-section">SENSORS</div>
   <div id="dbg-sensors"></div>
+  <div class="dbg-section">MUSIC DECISIONS</div>
+  <div class="dbg-log" id="dbg-decisions"></div>
   <div class="dbg-section">LOG</div>
   <div class="dbg-log" id="dbg-log"></div>
 </div>
@@ -909,6 +911,9 @@ async function loadMoreMusic() {
     track._seekTime = q.seekTime || 0;
     currentQueue.splice(currentIndex + 1, 0, track);
     if (logger) logger.logMusic('search', track, { query: q.reason, reason: 'repo_select' });
+    const st = engine.stateEstimator?.getState?.();
+    const it = engine.intentGenerator?.currentIntent;
+    logMusicDecision(track, q.reason || 'repo_select', it?.type, st);
     currentIndex++;
     playTrack(currentQueue[currentIndex]);
     renderQueue();
@@ -930,6 +935,9 @@ async function loadMoreMusic() {
   renderQueue();
   if (currentQueue.length > currentIndex + 1) {
     currentIndex++;
+    const st = engine.stateEstimator?.getState?.();
+    const it = engine.intentGenerator?.currentIntent;
+    logMusicDecision(currentQueue[currentIndex], q.query || 'yt_search', it?.type, st);
     playTrack(currentQueue[currentIndex]);
   }
 }
@@ -1538,6 +1546,7 @@ function toggleDebug() {
   debugOpen = !debugOpen;
   $('debug-panel').className = debugOpen ? 'open' : '';
   $('debug-toggle').textContent = debugOpen ? 'CLOSE' : 'DBG';
+  if (debugOpen) renderDecisions();
 }
 
 function updateDebugState(data) {
@@ -1580,6 +1589,32 @@ function addDebugLog(entry) {
   if (!debugOpen) return;
   $('dbg-log').innerHTML = debugLogEntries.slice(-20).reverse()
     .map(e => `<div class="dbg-log-entry">[${e.type}] ${e.message || JSON.stringify(e.state || {})}</div>`).join('');
+}
+
+const musicDecisions = [];
+function logMusicDecision(track, reason, intentType, stateSnapshot) {
+  const entry = {
+    time: new Date().toLocaleTimeString(),
+    track: track ? `${track.title || track.id} — ${track.artist || '?'}` : '?',
+    why: reason || 'unknown',
+    intent: intentType || '?',
+    energy: stateSnapshot?.energy?.level || '?',
+    immersion: stateSnapshot?.immersion?.level || '?',
+    trajectory: stateSnapshot?.trajectory?.direction || '?'
+  };
+  musicDecisions.push(entry);
+  if (musicDecisions.length > 30) musicDecisions.shift();
+  if (!debugOpen) return;
+  renderDecisions();
+}
+function renderDecisions() {
+  const el = $('dbg-decisions');
+  if (!el) return;
+  el.innerHTML = musicDecisions.slice(-10).reverse().map(d =>
+    `<div class="dbg-log-entry"><b>${d.time}</b> ${d.track}<br>` +
+    `<span style="color:#0ff">WHY:</span> ${d.why}<br>` +
+    `<span style="color:#0f0">INTENT:</span> ${d.intent} | E:${d.energy} I:${d.immersion} T:${d.trajectory}</div>`
+  ).join('');
 }
 
 // ==================== CONTROLS ====================
