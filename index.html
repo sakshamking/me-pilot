@@ -4,595 +4,626 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="M+E">
 <meta name="theme-color" content="#000000">
-<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎧</text></svg>">
-<link rel="manifest" href="manifest.json">
 <title>M+E</title>
 <style>
 * { margin: 0; padding: 0; box-sizing: border-box; }
-:root {
-  --accent: #ff3b5c; --dim: rgba(255,255,255,0.35); --bg: #0a0a0f;
-  --card: #0d0d12; --border: rgba(255,255,255,0.06);
-  --energy-hue: 220; /* shifts from 220 (blue) to 0 (red) based on energy */
-}
 
 body {
-  background: var(--bg); color: #fff;
+  background: #050508; color: #fff;
   font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Helvetica Neue', sans-serif;
   min-height: 100dvh; -webkit-user-select: none; user-select: none;
-  overflow-x: hidden; transition: background-color 3s ease;
+  overflow: hidden;
 }
 
-.view { display: none; width: 100%; max-width: 430px; margin: 0 auto; min-height: 100dvh; }
-.view.active { display: flex; flex-direction: column; }
+.view { display: none; position: fixed; inset: 0; }
+.view.active { display: flex; flex-direction: column; align-items: center; justify-content: center; }
 
-/* ========== INTAKE VIEW ========== */
-#v-intake { padding: env(safe-area-inset-top, 48px) 20px 40px; }
-.brand { text-align: center; padding: 12px 0 8px; }
-.brand-name { font-size: 13px; font-weight: 500; letter-spacing: 8px; color: var(--dim); font-family: 'SF Mono', 'Menlo', monospace; }
-.brand-sub { font-size: 11px; color: rgba(255,255,255,0.15); margin-top: 4px; letter-spacing: 2px; }
+/* ===== ENTRY VIEW ===== */
+#v-entry { gap: 48px; }
 
-.field { margin-bottom: 16px; }
-.field label { display: block; font-size: 11px; font-weight: 600; letter-spacing: 2px; color: rgba(255,255,255,0.2); margin-bottom: 8px; text-transform: uppercase; }
-.field input, .field textarea, .field select {
-  width: 100%; padding: 12px 16px; border: 1px solid var(--border); border-radius: 12px;
-  background: var(--card); color: #fff; font-size: 15px; font-family: inherit;
-  -webkit-appearance: none; outline: none; transition: border-color 0.2s;
-}
-.field input:focus, .field textarea:focus { border-color: rgba(255,255,255,0.2); }
-.field textarea { resize: none; height: 56px; }
-.field select { background: var(--card); color: #ccc; }
-
-.chips { display: flex; flex-wrap: wrap; gap: 8px; }
-.chip {
-  padding: 8px 16px; border-radius: 20px; font-size: 13px; font-weight: 500;
-  background: rgba(255,255,255,0.04); color: rgba(255,255,255,0.35);
-  border: 1px solid var(--border); cursor: pointer;
-  -webkit-tap-highlight-color: transparent; transition: all 0.2s;
-}
-.chip.active { background: rgba(255,59,92,0.15); color: var(--accent); border-color: rgba(255,59,92,0.4); }
-
-/* Energy slider */
-.slider-wrap { display: flex; align-items: center; gap: 12px; }
-.slider-wrap input[type="range"] {
-  flex: 1; -webkit-appearance: none; appearance: none;
-  height: 4px; background: rgba(255,255,255,0.08); border-radius: 2px; outline: none;
-}
-.slider-wrap input[type="range"]::-webkit-slider-thumb {
-  -webkit-appearance: none; width: 22px; height: 22px; border-radius: 50%;
-  background: var(--accent); cursor: pointer;
-}
-.slider-labels { display: flex; justify-content: space-between; font-size: 10px; color: rgba(255,255,255,0.15); margin-top: 4px; }
-.slider-val { font-size: 15px; font-weight: 600; color: var(--accent); min-width: 24px; text-align: center; }
-
-#start-btn {
-  display: block; width: 100%; padding: 16px; font-size: 17px; font-weight: 600;
-  background: var(--accent); color: #fff; border: none; border-radius: 14px;
-  cursor: pointer; margin-top: 20px; opacity: 0.25; pointer-events: none;
-  transition: opacity 0.3s; -webkit-tap-highlight-color: transparent;
-}
-#start-btn.ready { opacity: 1; pointer-events: auto; }
-.intake-status { text-align: center; font-size: 11px; color: rgba(255,255,255,0.15); margin-top: 10px; }
-
-/* ========== SESSION VIEW ========== */
-#v-session { padding: env(safe-area-inset-top, 20px) 0 0; position: relative; overflow: hidden; }
-
-/* Ambient glow — color shifts with energy */
-.glow {
-  position: fixed; top: 50%; left: 50%; width: 400px; height: 400px;
-  transform: translate(-50%, -50%); border-radius: 50%;
-  background: radial-gradient(circle, hsla(var(--energy-hue), 80%, 50%, 0.06) 0%, transparent 70%);
-  transition: all 3s ease; pointer-events: none; z-index: 0;
+.brand-mark {
+  font-size: 12px; font-weight: 500; letter-spacing: 10px;
+  color: rgba(255,255,255,0.15); font-family: 'SF Mono', 'Menlo', monospace;
+  text-transform: uppercase;
 }
 
-/* Subtle edge pulse for silent interventions */
-.edge-pulse {
-  position: fixed; inset: 0; pointer-events: none; z-index: 8;
-  border: 2px solid transparent; transition: border-color 1.5s ease;
-}
-.edge-pulse.active { border-color: rgba(255,59,92,0.2); }
+.energy-select { display: flex; gap: 40px; align-items: center; }
 
-/* Session header */
-.sess-header { text-align: center; padding: 12px 20px; position: relative; z-index: 2; }
-.sess-intent-tags { display: flex; gap: 6px; justify-content: center; flex-wrap: wrap; margin-top: 6px; }
-.sess-tag { padding: 4px 12px; border: 1px solid var(--border); border-radius: 14px; font-size: 11px; color: rgba(255,255,255,0.3); }
-.sess-timer { font-size: 11px; color: rgba(255,255,255,0.15); font-variant-numeric: tabular-nums; margin-top: 4px; }
-
-/* Calibration guidance */
-.calibration-section { text-align: center; padding: 0 40px; }
-.calibration-text { font-size: 12px; color: rgba(255,255,255,0.2); font-style: italic; }
-.calibration-bar { height: 2px; background: rgba(255,255,255,0.06); border-radius: 1px; margin: 8px 0 0; overflow: hidden; }
-.calibration-fill { height: 100%; background: var(--accent); transition: width 0.5s; width: 0%; }
-
-/* Arc timeline — thin bar showing session progress */
-.arc-timeline {
-  margin: 8px 16px; height: 24px; position: relative; z-index: 2;
-  background: rgba(255,255,255,0.03); border-radius: 4px; overflow: hidden;
-}
-.arc-path {
-  position: absolute; bottom: 0; left: 0; right: 0; height: 100%;
-  pointer-events: none;
-}
-.arc-progress {
-  position: absolute; top: 0; bottom: 0; left: 0; width: 0%;
-  background: rgba(255,59,92,0.08); border-right: 2px solid var(--accent);
-  transition: width 1s ease;
-}
-.arc-label {
-  position: absolute; right: 8px; top: 50%; transform: translateY(-50%);
-  font-size: 9px; color: rgba(255,255,255,0.15); font-family: 'SF Mono', monospace;
-}
-
-/* YouTube player */
-.player-section { padding: 8px 16px; position: relative; z-index: 2; }
-.player-wrap {
-  width: 100%; aspect-ratio: 16/9; border-radius: 12px; overflow: hidden;
-  background: rgba(255,255,255,0.03); position: relative;
-}
-.player-wrap iframe { width: 100%; height: 100%; border: 0; }
-.cf-player { position: absolute; inset: 0; }
-.cf-player iframe { width: 100%; height: 100%; border: 0; }
-#cf-wrap-A { z-index: 1; }
-#cf-wrap-B { z-index: 0; }
-
-/* Track info */
-.track-info { text-align: center; padding: 8px 20px; position: relative; z-index: 2; }
-.track-title { font-size: 16px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.track-artist { font-size: 13px; color: var(--dim); margin-top: 2px; }
-
-/* Controls */
-.controls { display: flex; align-items: center; justify-content: center; gap: 32px; padding: 8px 0; position: relative; z-index: 2; }
-.ctrl-btn { background: none; border: none; color: rgba(255,255,255,0.4); cursor: pointer; padding: 8px; -webkit-tap-highlight-color: transparent; }
-.ctrl-btn:active { transform: scale(0.9); }
-.ctrl-btn svg { width: 24px; height: 24px; fill: currentColor; }
-.ctrl-play {
-  width: 56px; height: 56px; border-radius: 50%; background: var(--accent);
-  border: none; cursor: pointer; display: flex; align-items: center; justify-content: center;
+.energy-dot {
+  width: 48px; height: 48px; border-radius: 50%;
+  border: 1px solid rgba(255,255,255,0.08); background: transparent;
+  cursor: pointer; transition: all 0.6s ease; position: relative;
   -webkit-tap-highlight-color: transparent;
 }
-.ctrl-play:active { transform: scale(0.92); }
-.ctrl-play svg { width: 24px; height: 24px; fill: #fff; }
-
-/* Moment button */
-#moment-btn {
-  display: block; margin: 4px auto; padding: 6px 20px;
-  border: 1px solid rgba(255,59,92,0.15); border-radius: 20px;
-  background: transparent; color: rgba(255,59,92,0.4); font-size: 11px;
-  cursor: pointer; position: relative; z-index: 2; transition: all 0.3s;
-  letter-spacing: 1px;
+.energy-dot::after {
+  content: attr(data-label); position: absolute; bottom: -24px; left: 50%;
+  transform: translateX(-50%); font-size: 10px; letter-spacing: 2px;
+  color: rgba(255,255,255,0.1); white-space: nowrap;
 }
-#moment-btn:active { background: rgba(255,59,92,0.1); color: var(--accent); transform: scale(0.95); }
-#moment-btn.tapped { border-color: var(--accent); color: var(--accent); }
-
-/* Nudge overlay */
-#nudge-overlay {
-  position: fixed; top: 0; left: 0; right: 0; bottom: 0;
-  display: flex; align-items: center; justify-content: center;
-  flex-direction: column; gap: 16px;
-  pointer-events: none; z-index: 10;
+.energy-dot:hover { border-color: rgba(255,255,255,0.15); }
+.energy-dot.selected {
+  border-color: rgba(255,255,255,0.25);
+  background: radial-gradient(circle, rgba(255,255,255,0.06) 0%, transparent 70%);
+  box-shadow: 0 0 30px rgba(255,255,255,0.03);
 }
-#nudge-text {
-  font-size: 28px; font-weight: 200; letter-spacing: 4px; text-align: center;
-  opacity: 0; transition: opacity 1.5s ease; color: #fff;
-  text-shadow: 0 0 40px rgba(255,59,92,0.3);
-}
-#nudge-text.visible { opacity: 1; }
 
-/* Post-nudge feedback */
-.nudge-feedback {
-  display: none; gap: 20px; pointer-events: auto; opacity: 0; transition: opacity 0.5s;
+.duration-toggle {
+  display: flex; gap: 24px; font-size: 11px; letter-spacing: 2px;
+  color: rgba(255,255,255,0.1);
 }
-.nudge-feedback.visible { display: flex; opacity: 1; }
-.nf-btn {
-  width: 44px; height: 44px; border-radius: 50%;
-  background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.1);
-  display: flex; align-items: center; justify-content: center;
-  cursor: pointer; font-size: 20px; transition: all 0.2s;
+.dur-opt {
+  cursor: pointer; padding: 6px 16px; border-radius: 20px;
+  border: 1px solid transparent; transition: all 0.3s;
+  -webkit-tap-highlight-color: transparent;
 }
-.nf-btn:active { transform: scale(0.9); }
-.nf-btn.up:active { background: rgba(80,200,120,0.2); border-color: rgba(80,200,120,0.4); }
-.nf-btn.down:active { background: rgba(255,59,92,0.2); border-color: rgba(255,59,92,0.4); }
-
-/* Session status line */
-.sess-status { text-align: center; font-size: 11px; color: rgba(255,255,255,0.35); padding: 4px; position: relative; z-index: 2; }
-
-/* Queue */
-.queue-section { padding: 0 16px 16px; position: relative; z-index: 2; }
-.queue-label { font-size: 10px; font-weight: 600; letter-spacing: 2px; color: rgba(255,255,255,0.12); margin-bottom: 6px; }
-.queue-item {
-  display: flex; align-items: center; padding: 8px 0;
-  border-bottom: 1px solid rgba(255,255,255,0.03); cursor: pointer;
+.dur-opt.selected {
+  color: rgba(255,255,255,0.3); border-color: rgba(255,255,255,0.08);
 }
-.queue-item:active { opacity: 0.5; }
-.queue-art { width: 44px; height: 33px; border-radius: 4px; background: rgba(255,255,255,0.04); overflow: hidden; margin-right: 10px; flex-shrink: 0; }
-.queue-art img { width: 100%; height: 100%; object-fit: cover; }
-.queue-title { font-size: 13px; color: rgba(255,255,255,0.6); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.queue-artist { font-size: 11px; color: rgba(255,255,255,0.2); }
-.queue-item.active .queue-title { color: var(--accent); }
 
-/* End session button */
+#begin-btn {
+  padding: 14px 48px; border: 1px solid rgba(255,255,255,0.06);
+  border-radius: 28px; background: transparent; color: rgba(255,255,255,0.12);
+  font-size: 13px; letter-spacing: 4px; cursor: pointer;
+  transition: all 0.5s ease; opacity: 0; pointer-events: none;
+  -webkit-tap-highlight-color: transparent;
+}
+#begin-btn.ready {
+  opacity: 1; pointer-events: auto;
+  color: rgba(255,255,255,0.3); border-color: rgba(255,255,255,0.1);
+}
+#begin-btn.ready:hover {
+  color: rgba(255,255,255,0.5); border-color: rgba(255,255,255,0.2);
+}
+
+/* ===== SESSION VIEW ===== */
+#v-session { cursor: default; }
+
+.glow {
+  position: fixed; top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+  width: 300px; height: 300px; border-radius: 50%;
+  background: radial-gradient(circle, hsla(220, 60%, 40%, 0.04) 0%, transparent 70%);
+  transition: all 4s ease; pointer-events: none;
+  filter: blur(40px);
+}
+
+.session-brand {
+  position: fixed; top: 32px; left: 50%; transform: translateX(-50%);
+  font-size: 10px; font-weight: 500; letter-spacing: 8px;
+  color: rgba(255,255,255,0.06); font-family: 'SF Mono', 'Menlo', monospace;
+  pointer-events: none; z-index: 2;
+}
+
+.track-reveal {
+  position: fixed; bottom: 48px; left: 50%; transform: translateX(-50%);
+  text-align: center; opacity: 0; transition: opacity 0.5s ease;
+  pointer-events: none; z-index: 2;
+}
+.track-reveal.visible { opacity: 1; }
+.track-reveal .tr-title {
+  font-size: 14px; font-weight: 400; color: rgba(255,255,255,0.4);
+  white-space: nowrap; max-width: 80vw; overflow: hidden; text-overflow: ellipsis;
+}
+.track-reveal .tr-artist {
+  font-size: 11px; color: rgba(255,255,255,0.15); margin-top: 4px;
+}
+.track-reveal .tr-meta {
+  font-size: 9px; color: rgba(255,255,255,0.08); margin-top: 8px;
+  font-family: 'SF Mono', monospace; letter-spacing: 1px;
+}
+
+.session-timer {
+  position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%);
+  font-size: 10px; color: rgba(255,255,255,0.06);
+  font-family: 'SF Mono', monospace; font-variant-numeric: tabular-nums;
+  pointer-events: none; z-index: 2;
+}
+
+/* Player hidden off-screen for audio-only */
+.player-hidden {
+  position: fixed; top: -9999px; left: -9999px;
+  width: 320px; height: 180px; overflow: hidden;
+}
+
+/* End session — barely visible bottom-right */
 #end-btn {
-  display: block; margin: 8px auto 16px; padding: 8px 24px; border: 1px solid rgba(255,255,255,0.08);
-  border-radius: 12px; background: transparent; color: rgba(255,255,255,0.2);
-  font-size: 12px; cursor: pointer; position: relative; z-index: 2;
+  position: fixed; bottom: 12px; right: 16px;
+  background: none; border: none; color: rgba(255,255,255,0.15);
+  font-size: 10px; letter-spacing: 2px; cursor: pointer;
+  font-family: 'SF Mono', monospace; z-index: 3;
+  -webkit-tap-highlight-color: transparent;
+}
+#end-btn:hover { color: rgba(255,255,255,0.1); }
+
+/* ===== RECEIPT VIEW ===== */
+#v-receipt { gap: 32px; }
+
+.receipt-time {
+  font-size: 56px; font-weight: 200; color: rgba(255,255,255,0.7);
+  font-variant-numeric: tabular-nums;
+}
+.receipt-label {
+  font-size: 10px; letter-spacing: 4px; color: rgba(255,255,255,0.1);
+}
+.receipt-line {
+  font-size: 12px; color: rgba(255,255,255,0.2);
+  font-family: 'SF Mono', monospace; letter-spacing: 1px;
+  text-align: center; line-height: 1.8;
+}
+#receipt-close {
+  padding: 12px 40px; border: 1px solid rgba(255,255,255,0.06);
+  border-radius: 24px; background: transparent;
+  color: rgba(255,255,255,0.15); font-size: 12px; letter-spacing: 3px;
+  cursor: pointer; margin-top: 16px;
+  -webkit-tap-highlight-color: transparent;
 }
 
-/* ========== SESSION RECAP ========== */
-#v-recap { padding: env(safe-area-inset-top, 48px) 20px 40px; align-items: center; }
-.recap-title { font-size: 11px; letter-spacing: 8px; color: var(--dim); font-family: 'SF Mono', monospace; margin-bottom: 8px; }
-.recap-duration { font-size: 48px; font-weight: 200; color: #fff; margin-bottom: 4px; }
-.recap-duration-label { font-size: 11px; color: rgba(255,255,255,0.15); letter-spacing: 2px; margin-bottom: 24px; }
-.recap-stats { width: 100%; max-width: 300px; }
-.recap-row { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,0.04); }
-.recap-label { font-size: 13px; color: rgba(255,255,255,0.3); }
-.recap-value { font-size: 13px; color: rgba(255,255,255,0.7); font-family: 'SF Mono', monospace; }
-.recap-moments { margin-top: 24px; text-align: center; }
-.recap-moments-count { font-size: 32px; font-weight: 200; color: var(--accent); }
-.recap-moments-label { font-size: 11px; color: rgba(255,255,255,0.2); letter-spacing: 1px; margin-top: 4px; }
-#recap-close-btn {
-  margin-top: 32px; padding: 14px 40px; border: 1px solid rgba(255,255,255,0.1);
-  border-radius: 14px; background: transparent; color: rgba(255,255,255,0.4);
-  font-size: 14px; cursor: pointer;
-}
+/* ===== HIDDEN CAMERA (face detection runs invisibly) ===== */
+.camera-hidden { position: fixed; top: -9999px; left: -9999px; width: 1px; height: 1px; overflow: hidden; }
 
-/* ========== DEBUG OVERLAY ========== */
-#debug-toggle {
-  position: fixed; top: env(safe-area-inset-top, 12px); right: 12px;
-  padding: 4px 10px; border: 1px solid rgba(255,255,255,0.08); border-radius: 12px;
-  background: transparent; color: rgba(255,255,255,0.15); font-size: 10px;
-  cursor: pointer; z-index: 20; font-family: 'SF Mono', monospace;
+/* ===== ME DEBUG OVERLAY (toggle with D key) ===== */
+.me-debug {
+  position: fixed; top: 12px; left: 12px; z-index: 100;
+  background: rgba(0,0,0,0.85); border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 8px; padding: 12px 16px; max-width: 320px;
+  font-family: 'SF Mono', 'Menlo', monospace; font-size: 10px;
+  color: rgba(255,255,255,0.5); line-height: 1.6;
+  display: none; pointer-events: none;
 }
-#debug-panel {
-  display: none; position: fixed; bottom: 0; left: 0; right: 0;
-  max-height: 45vh; overflow-y: auto; z-index: 15;
-  background: rgba(0,0,0,0.92); border-top: 1px solid rgba(255,255,255,0.08);
-  padding: 12px 16px; font-size: 11px; font-family: 'SF Mono', monospace;
-  color: rgba(255,255,255,0.5); backdrop-filter: blur(20px);
-}
-#debug-panel.open { display: block; }
-.dbg-row { display: flex; justify-content: space-between; padding: 3px 0; border-bottom: 1px solid rgba(255,255,255,0.03); }
-.dbg-label { color: rgba(255,255,255,0.25); }
-.dbg-val { color: rgba(255,255,255,0.6); }
-.dbg-val.accent { color: var(--accent); }
-.dbg-section { color: rgba(255,59,92,0.4); font-size: 10px; letter-spacing: 2px; margin-top: 8px; margin-bottom: 4px; }
-.dbg-log { max-height: 120px; overflow-y: auto; margin-top: 8px; }
-.dbg-log-entry { padding: 2px 0; color: rgba(255,255,255,0.3); font-size: 10px; border-bottom: 1px solid rgba(255,255,255,0.02); }
-
-/* Token config overlay */
-#v-config {
-  position: fixed; inset: 0; z-index: 9999; background: var(--bg);
-  display: none; flex-direction: column; justify-content: center; align-items: center;
-  padding: 40px 24px;
-}
-#v-config .brand-name { font-size: 13px; font-weight: 500; letter-spacing: 8px; color: var(--dim); font-family: 'SF Mono', monospace; }
-#v-config .config-msg { font-size: 13px; color: var(--dim); text-align: center; margin: 16px 0 24px; line-height: 1.5; }
-#v-config input { width: 100%; max-width: 380px; padding: 14px 16px; border: 1px solid var(--border); border-radius: 12px; background: var(--card); color: #fff; font-size: 14px; font-family: 'SF Mono', monospace; outline: none; }
-#v-config input:focus { border-color: rgba(255,255,255,0.2); }
-#v-config button { margin-top: 16px; padding: 12px 32px; border: none; border-radius: 12px; background: var(--accent); color: #fff; font-size: 14px; font-weight: 600; cursor: pointer; }
-#v-config .config-status { font-size: 11px; color: var(--dim); margin-top: 12px; }
-
-/* Hidden face elements */
-#face-video { position: fixed; top: -9999px; left: -9999px; width: 640px; height: 480px; }
-#face-canvas { display: none; }
+.me-debug.visible { display: block; }
+.me-debug .label { color: rgba(255,255,255,0.25); text-transform: uppercase; letter-spacing: 2px; font-size: 8px; margin-top: 8px; }
+.me-debug .label:first-child { margin-top: 0; }
+.me-debug .value { color: rgba(255,255,255,0.7); }
+.me-debug .intent-type { color: #8be9fd; font-weight: 600; font-size: 12px; }
+.me-debug .intent-reason { color: rgba(255,255,255,0.4); font-style: italic; }
+.me-debug .dim { color: rgba(255,255,255,0.2); }
 </style>
 </head>
 <body>
 
-<!-- ========== TOKEN CONFIG (one-time) ========== -->
-<div id="v-config">
-  <div class="brand-name">M + E</div>
-  <div class="config-msg">Optional: paste your GitHub token<br>to sync session data automatically.</div>
-  <input type="text" id="f-token" placeholder="github_pat_..." autocomplete="off" spellcheck="false">
-  <button onclick="saveGitHubToken()">Connect</button>
-  <button onclick="skipGitHubSetup()" style="margin-top:8px; padding:10px 28px; border:1px solid rgba(255,255,255,0.1); border-radius:12px; background:transparent; color:rgba(255,255,255,0.3); font-size:13px; cursor:pointer;">Skip — just play</button>
-  <div class="config-status" id="config-status"></div>
+<!-- ===== ENTRY ===== -->
+<div id="v-entry" class="view active">
+  <div class="brand-mark">M + E</div>
+  <div id="welcome-back" style="font-size:11px;letter-spacing:2px;color:rgba(255,255,255,0.15);margin-bottom:8px;display:none"></div>
+  <input id="name-input" type="text" placeholder="YOUR NAME" autocomplete="off" spellcheck="false"
+    style="background:transparent;border:none;border-bottom:1px solid rgba(255,255,255,0.08);
+    color:rgba(255,255,255,0.5);font-size:14px;letter-spacing:3px;text-align:center;
+    padding:8px 16px;width:200px;outline:none;font-family:inherit;margin-bottom:32px"
+    oninput="onNameInput(this)">
+  <div style="font-size:10px;letter-spacing:3px;color:rgba(255,255,255,0.12);margin-bottom:16px">WHERE ARE YOU RIGHT NOW</div>
+  <div class="energy-select">
+    <div class="energy-dot" data-energy="low" data-label="LOW" onclick="selectEnergy(this)"></div>
+    <div class="energy-dot" data-energy="mid" data-label="MID" onclick="selectEnergy(this)"></div>
+    <div class="energy-dot" data-energy="high" data-label="HIGH" onclick="selectEnergy(this)"></div>
+  </div>
+  <div class="duration-toggle">
+    <span class="dur-opt" data-dur="15" onclick="selectDuration(this)">15 MIN</span>
+    <span class="dur-opt selected" data-dur="30" onclick="selectDuration(this)">30 MIN</span>
+  </div>
+  <button id="begin-btn" onclick="beginSession()">BEGIN</button>
 </div>
 
-<!-- ========== INTAKE VIEW ========== -->
-<div id="v-intake" class="view active">
-  <div class="brand">
-    <div class="brand-name">M + E</div>
-    <div class="brand-sub">YOUR SESSION</div>
-  </div>
-
-  <div class="field">
-    <label>WHERE ARE YOU</label>
-    <input type="text" id="f-location" placeholder="Home, hotel room, office...">
-  </div>
-
-  <div class="field">
-    <label>SET THE SCENE</label>
-    <textarea id="f-situation" placeholder="Sitting in bed, lights dimmed..."></textarea>
-  </div>
-
-  <div class="field">
-    <label>BEFORE THIS</label>
-    <div class="chips" data-field="before">
-      <div class="chip" data-v="work">Work</div>
-      <div class="chip" data-v="social">Socializing</div>
-      <div class="chip" data-v="travel">Travelling</div>
-      <div class="chip" data-v="exercise">Exercise</div>
-      <div class="chip" data-v="eating">Eating</div>
-      <div class="chip" data-v="nothing">Nothing</div>
-    </div>
-  </div>
-
-  <div class="field">
-    <label>TONIGHT I WANT TO...</label>
-    <div class="chips" data-field="intent">
-      <div class="chip" data-v="unwind">Unwind</div>
-      <div class="chip" data-v="energy">Energy</div>
-      <div class="chip" data-v="focus">Focus</div>
-      <div class="chip" data-v="feel">Feel something</div>
-      <div class="chip" data-v="escape">Escape</div>
-      <div class="chip" data-v="sleep_prep">Wind down</div>
-    </div>
-  </div>
-
-  <div class="field">
-    <label>SOUND</label>
-    <div class="chips" data-field="vibe">
-      <div class="chip" data-v="electronic">Electronic</div>
-      <div class="chip" data-v="ambient">Ambient</div>
-      <div class="chip" data-v="bollywood">Bollywood</div>
-      <div class="chip" data-v="classical">Classical</div>
-      <div class="chip" data-v="mixed">Surprise me</div>
-    </div>
-  </div>
-
-  <div class="field">
-    <label>YOUR ENERGY RIGHT NOW</label>
-    <div class="slider-wrap">
-      <input type="range" id="f-energy" min="1" max="5" value="3" step="1">
-      <span class="slider-val" id="energy-val">3</span>
-    </div>
-    <div class="slider-labels"><span>Drained</span><span>Wired</span></div>
-  </div>
-
-  <div class="field">
-    <label>OPENNESS TO BEING PUSHED</label>
-    <div class="chips" data-field="openness" data-single="true">
-      <div class="chip" data-v="low">Keep it subtle</div>
-      <div class="chip active" data-v="medium">I can take it</div>
-      <div class="chip" data-v="high">Push me</div>
-    </div>
-  </div>
-
-  <div class="field">
-    <label>SESSION LENGTH</label>
-    <select id="f-session-length">
-      <option value="0.5">30 min</option>
-      <option value="1">1 hour</option>
-      <option value="2" selected>2 hours</option>
-      <option value="3">3 hours</option>
-    </select>
-  </div>
-
-  <button id="start-btn" onclick="beginSession()">Begin Session</button>
-  <div class="intake-status" id="intake-status">Select your intent to begin</div>
-</div>
-
-<!-- ========== SESSION VIEW ========== -->
+<!-- ===== SESSION ===== -->
 <div id="v-session" class="view">
   <div class="glow" id="glow"></div>
-  <div class="edge-pulse" id="edge-pulse"></div>
-
-  <div class="sess-header">
-    <div class="brand-name" style="font-size:11px;">M + E</div>
-    <div class="sess-intent-tags" id="sess-tags"></div>
-    <div class="sess-timer" id="sess-timer">00:00</div>
+  <div class="session-brand">M + E</div>
+  <div class="track-reveal" id="track-reveal">
+    <div class="tr-title" id="tr-title"></div>
+    <div class="tr-artist" id="tr-artist"></div>
+    <div class="tr-meta" id="tr-meta"></div>
   </div>
-
-  <div class="calibration-section" id="cal-section">
-    <div class="calibration-text">Just be natural for 2 minutes. I'm learning your baseline.</div>
-    <div class="calibration-bar"><div class="calibration-fill" id="cal-fill"></div></div>
+  <div class="session-timer" id="session-timer">00:00</div>
+  <button id="end-btn" onclick="endSession()">END</button>
+  <button id="dbg-btn" onclick="meDebugVisible=!meDebugVisible;document.getElementById('me-debug').classList.toggle('visible',meDebugVisible)" style="position:fixed;bottom:12px;left:12px;background:transparent;border:1px solid rgba(255,255,255,0.06);color:rgba(255,255,255,0.15);font-size:9px;letter-spacing:2px;padding:4px 10px;border-radius:12px;cursor:pointer;z-index:100;font-family:inherit">DEBUG</button>
+  <div class="player-hidden">
+    <div id="ytPlayerA"></div>
+    <div id="ytPlayerB"></div>
   </div>
-
-  <div class="arc-timeline" id="arc-timeline">
-    <canvas class="arc-path" id="arc-canvas"></canvas>
-    <div class="arc-progress" id="arc-progress"></div>
-    <div class="arc-label" id="arc-label"></div>
+  <!-- Hidden camera for face detection -->
+  <div class="camera-hidden">
+    <video id="cam" autoplay playsinline muted></video>
+    <canvas id="cam-canvas"></canvas>
   </div>
-
-  <div class="player-section">
-    <div class="player-wrap">
-      <div class="cf-player" id="cf-wrap-A"><div id="ytPlayerA"></div></div>
-      <div class="cf-player" id="cf-wrap-B"><div id="ytPlayerB"></div></div>
-    </div>
-  </div>
-
-  <div class="track-info">
-    <div class="track-title" id="trackTitle">Starting...</div>
-    <div class="track-artist" id="trackArtist"></div>
-  </div>
-
-  <div class="controls">
-    <button class="ctrl-btn" id="btnPrev"><svg viewBox="0 0 24 24"><path d="M6 6h2v12H6zm3.5 6l8.5 6V6z"/></svg></button>
-    <button class="ctrl-play" id="btnPlay"><svg viewBox="0 0 24 24" id="playIcon"><path d="M8 5v14l11-7z"/></svg></button>
-    <button class="ctrl-btn" id="btnNext"><svg viewBox="0 0 24 24"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/></svg></button>
-  </div>
-
-  <button id="moment-btn" onclick="logMoment()">I feel something</button>
-
-  <div class="sess-status" id="sess-status">Warming up...</div>
-
-  <div class="queue-section" id="queue-section" style="display:none">
-    <div class="queue-label">UP NEXT</div>
-    <div id="queue-list"></div>
-  </div>
-
-  <button id="end-btn" onclick="endSession()">End Session</button>
-</div>
-
-<!-- ========== SESSION RECAP ========== -->
-<div id="v-recap" class="view">
-  <div class="recap-title">M + E</div>
-  <div class="recap-duration" id="recap-duration">--</div>
-  <div class="recap-duration-label">MINUTES</div>
-  <div class="recap-stats" id="recap-stats"></div>
-  <div class="recap-moments">
-    <div class="recap-moments-count" id="recap-moments-count">0</div>
-    <div class="recap-moments-label">MOMENTS CAPTURED</div>
-  </div>
-  <button id="recap-close-btn" onclick="closeRecap()">Done</button>
-</div>
-
-<!-- Nudge overlay (always present) -->
-<div id="nudge-overlay">
-  <div id="nudge-text"></div>
-  <div class="nudge-feedback" id="nudge-feedback">
-    <button class="nf-btn up" onclick="nudgeFeedback('positive')">&#x1F44D;</button>
-    <button class="nf-btn down" onclick="nudgeFeedback('negative')">&#x1F44E;</button>
+  <!-- ME Debug Overlay (D key toggles) -->
+  <div class="me-debug" id="me-debug">
+    <div class="label">SIGNAL</div>
+    <div id="dbg-signal" class="dim">waiting...</div>
+    <div class="label">STATE</div>
+    <div id="dbg-state" class="dim">—</div>
+    <div class="label">INTENT</div>
+    <div id="dbg-intent" class="intent-type">—</div>
+    <div id="dbg-intent-reason" class="intent-reason"></div>
+    <div class="label">MUSIC TRANSLATION</div>
+    <div id="dbg-music" class="dim">—</div>
+    <div class="label">FILTER</div>
+    <div id="dbg-filter" class="dim">—</div>
+    <div class="label">DYNAMICS</div>
+    <div id="dbg-dynamics" class="dim">—</div>
+    <div class="label" style="color:#ff5555;margin-top:12px">MUSIC DECISIONS</div>
+    <div id="dbg-decisions" class="dim" style="max-height:200px;overflow-y:auto;font-size:9px">—</div>
   </div>
 </div>
 
-<!-- Debug toggle + panel -->
-<button id="debug-toggle" style="display:none" onclick="toggleDebug()">DBG</button>
-<div id="debug-panel">
-  <div class="dbg-section">ENGINE STATE</div>
-  <div id="dbg-state"></div>
-  <div class="dbg-section">ANALYTICS</div>
-  <div id="dbg-analytics"></div>
-  <div class="dbg-section">SENSORS</div>
-  <div id="dbg-sensors"></div>
-  <div class="dbg-section">MUSIC DECISIONS</div>
-  <div class="dbg-log" id="dbg-decisions"></div>
-  <div class="dbg-section">LOG</div>
-  <div class="dbg-log" id="dbg-log"></div>
+<!-- ===== RECEIPT ===== -->
+<div id="v-receipt" class="view">
+  <div class="brand-mark">M + E</div>
+  <div class="receipt-time" id="receipt-time">--:--</div>
+  <div class="receipt-label">MINUTES</div>
+  <div class="receipt-line" id="receipt-line"></div>
+  <button id="receipt-close" onclick="location.reload()">DONE</button>
 </div>
 
-<!-- Hidden face detection elements -->
-<video id="face-video" playsinline autoplay muted></video>
-<canvas id="face-canvas"></canvas>
-
-<!-- ========== SCRIPTS ========== -->
-<script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh@0.4.1633559619/face_mesh.js" crossorigin="anonymous"></script>
+<!-- ===== SCRIPTS ===== -->
 <script src="https://www.youtube.com/iframe_api"></script>
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh@0.4.1633559619/face_mesh.js" crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils@0.3.1632432234/camera_utils.js" crossorigin="anonymous"></script>
 <script src="track_data.js"></script>
 <script src="engine.js"></script>
 
 <script>
 // ============================================================
-// M+E PILOT V4 — Phone-Native App with Structured Analytics
+// EDDIE DEMO — The Room Adjusts
+// Reuses: TrackRepository (engine.js), TRACK_REPOSITORY_DATA (track_data.js)
 // ============================================================
-
-const YT_API_KEY = 'AIzaSyAfJITiaEinEztRvBrs8CpEjFqSWg-grI8';
-const GITHUB_REPO = 'sakshamking/me-app';
-
-// ==================== GITHUB TOKEN CONFIG ====================
-function getGitHubToken() { return localStorage.getItem('me_github_token') || null; }
-
-function checkGitHubSetupInner() {
-  const token = getGitHubToken();
-  if (!token) {
-    $('v-config').style.display = 'flex';
-    $('v-intake').classList.remove('active');
-  } else {
-    AnalyticsLogger.syncPending(GITHUB_REPO, token).then(r => {
-      if (r.synced > 0) console.log(`Synced ${r.synced} pending session(s)`);
-    });
-  }
-}
-
-async function saveGitHubToken() {
-  const token = $('f-token').value.trim();
-  if (!token || !token.startsWith('github_pat_')) {
-    $('config-status').textContent = 'Token must start with github_pat_';
-    return;
-  }
-  $('config-status').textContent = 'Verifying...';
-  try {
-    const resp = await fetch(`https://api.github.com/repos/${GITHUB_REPO}`, {
-      headers: { 'Authorization': `token ${token}` }
-    });
-    if (!resp.ok) { $('config-status').textContent = 'Token rejected — check permissions'; return; }
-    const repo = await resp.json();
-    if (!repo.permissions || !repo.permissions.push) { $('config-status').textContent = 'Token needs write access'; return; }
-  } catch (e) { $('config-status').textContent = 'Network error — try again'; return; }
-
-  localStorage.setItem('me_github_token', token);
-  $('config-status').textContent = 'Connected!';
-  const r = await AnalyticsLogger.syncPending(GITHUB_REPO, token);
-  if (r.synced > 0) $('config-status').textContent = `Connected! Synced ${r.synced} session(s).`;
-  setTimeout(() => { $('v-config').style.display = 'none'; $('v-intake').classList.add('active'); }, 800);
-}
-
-function skipGitHubSetup() {
-  localStorage.setItem('me_github_skipped', '1');
-  $('v-config').style.display = 'none';
-  $('v-intake').classList.add('active');
-}
-
-function checkGitHubSetup() {
-  // If previously skipped, don't block
-  if (localStorage.getItem('me_github_skipped')) return;
-  checkGitHubSetupInner();
-}
-
-document.addEventListener('DOMContentLoaded', checkGitHubSetup);
-
-// ==================== GLOBALS ====================
-let engine = null;
-let ytSearch = null;
-let logger = null;
-let faceAnalyzer = null;
-let ytPlayer = null;
-let playerReady = false;
-let currentQueue = [];
-let currentIndex = 0;
-let sessionActive = false;
-let chipSelections = { openness: ['medium'] }; // default openness
-let debugOpen = false;
-let sessionTimerId = null;
-let sensorSendId = null;
-let faceDetectId = null;
-let faceModelLoaded = false;
-let lastNudgeTimestamp = null; // for nudge feedback
-
-let motionData = { ax: 0, ay: 0, az: 0, gx: 0, gy: 0, gz: 0 };
-let orientData = { alpha: 0, beta: 0, gamma: 0 };
 
 const $ = id => document.getElementById(id);
 
-// ==================== CHIP SELECTION ====================
-document.querySelectorAll('.chips').forEach(group => {
-  const field = group.dataset.field;
-  const single = group.dataset.single === 'true';
-  group.querySelectorAll('.chip').forEach(chip => {
-    chip.addEventListener('click', () => {
-      if (single) {
-        // Radio behavior — only one active
-        group.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
-        chip.classList.add('active');
-        chipSelections[field] = [chip.dataset.v];
-      } else {
-        chip.classList.toggle('active');
-        chipSelections[field] = [...group.querySelectorAll('.chip.active')].map(c => c.dataset.v);
-      }
-      checkReady();
-    });
+// ==================== MUSIC DECISIONS LOG ====================
+const _musicDecisions = [];
+function logMusicDecision(track, reason, intent) {
+  const t = new Date().toLocaleTimeString().slice(0,5);
+  const name = track ? `${track.title || track.id} — ${track.artist || '?'}` : '?';
+  const why = typeof reason === 'object' ? `${reason.type} E:${reason.targetEnergy||'?'}` : String(reason);
+  const iType = intent?.type || '?';
+  const iReason = intent?.reason || '';
+  _musicDecisions.push({ t, name, why, iType, iReason });
+  if (_musicDecisions.length > 30) _musicDecisions.shift();
+  const el = $('dbg-decisions');
+  if (!el) return;
+  el.innerHTML = _musicDecisions.slice().reverse().map(d =>
+    `<div style="margin-bottom:6px;border-bottom:1px solid rgba(255,255,255,0.05);padding-bottom:4px">` +
+    `<span style="color:rgba(255,255,255,0.3)">${d.t}</span> <b>${d.name}</b><br>` +
+    `<span style="color:#0ff">WHY:</span> ${d.why}<br>` +
+    `<span style="color:#8be9fd">INTENT:</span> ${d.iType} — ${d.iReason}</div>`
+  ).join('');
+}
+
+// ==================== STATE ====================
+let selectedEnergy = null;   // 'low' | 'mid' | 'high'
+let selectedDuration = 30;   // minutes
+let sessionActive = false;
+let sessionStartTime = null;
+let currentUserName = null;
+
+// ==================== USER MEMORY (localStorage) ====================
+function meLoadUser() {
+  try {
+    const stored = localStorage.getItem('me_users');
+    return stored ? JSON.parse(stored) : {};
+  } catch(e) { return {}; }
+}
+
+function meSaveUser(name, sessionData) {
+  const users = meLoadUser();
+  if (!users[name]) users[name] = { sessions: 0, firstSeen: Date.now(), lastSeen: 0, peakEnergy: 0 };
+  users[name].sessions++;
+  users[name].lastSeen = Date.now();
+  if (sessionData) {
+    if (sessionData.peakEnergy > users[name].peakEnergy) users[name].peakEnergy = sessionData.peakEnergy;
+  }
+  try { localStorage.setItem('me_users', JSON.stringify(users)); } catch(e) {}
+}
+
+function onNameInput(el) {
+  const name = el.value.trim();
+  const users = meLoadUser();
+  const welcome = $('welcome-back');
+  if (name && users[name.toLowerCase()]) {
+    const u = users[name.toLowerCase()];
+    const sessions = u.sessions;
+    welcome.textContent = sessions === 1 ? 'WELCOME BACK' : `WELCOME BACK · SESSION ${sessions + 1}`;
+    welcome.style.display = 'block';
+  } else {
+    welcome.style.display = 'none';
+  }
+}
+
+// On page load — restore last name
+(function() {
+  try {
+    const lastName = localStorage.getItem('me_last_name');
+    if (lastName) {
+      const inp = $('name-input');
+      if (inp) { inp.value = lastName; onNameInput(inp); }
+    }
+  } catch(e) {}
+})();
+
+// ==================== ME INTELLIGENCE LAYER ====================
+// Phase 1: State → Intent → Music/Glow
+const meCalibrator = new Calibrator({ calibrationDuration: 120000 }); // 2 min
+const meStateEstimator = new StateEstimator(meCalibrator);
+const meFaceAnalyzer = new FaceAnalyzer();
+const meIntentGenerator = new IntentGenerator();
+const meSignalFilter = new SignalPersistenceFilter(); // Session 118: read fast, act on sustained
+let meCurrentIntent = null;
+let meDebugVisible = false;
+let meStateTickInterval = null;
+let meFaceMesh = null;
+let meCameraRunning = false;
+
+// Start invisible camera + face detection
+function meStartCamera() {
+  const videoEl = $('cam');
+  if (!videoEl || !window.FaceMesh) {
+    console.warn('[ME] MediaPipe FaceMesh not loaded — running without biometrics');
+    return;
+  }
+
+  meFaceMesh = new FaceMesh({
+    locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh@0.4.1633559619/${file}`
   });
-  // Initialize from already-active chips
-  chipSelections[field] = [...group.querySelectorAll('.chip.active')].map(c => c.dataset.v);
+  meFaceMesh.setOptions({
+    maxNumFaces: 1,
+    refineLandmarks: true,  // 478 landmarks (iris tracking)
+    minDetectionConfidence: 0.5,
+    minTrackingConfidence: 0.5
+  });
+  meFaceMesh.onResults((results) => {
+    if (!sessionActive) return;
+    if (results.multiFaceLandmarks && results.multiFaceLandmarks.length > 0) {
+      const landmarks = results.multiFaceLandmarks[0];
+      const faceData = meFaceAnalyzer.analyze(landmarks);
+      faceData.detectionConfidence = 0.8; // MediaPipe doesn't expose per-frame confidence directly
+      meCalibrator.addFaceData(faceData);
+      meStateEstimator.addFaceData(faceData);
+    }
+  });
+
+  // Start camera with MediaPipe Camera utility
+  if (window.Camera) {
+    const camera = new Camera(videoEl, {
+      onFrame: async () => { if (meFaceMesh && sessionActive) await meFaceMesh.send({ image: videoEl }); },
+      width: 320, height: 240, facingMode: 'user'
+    });
+    camera.start().then(() => {
+      meCameraRunning = true;
+      console.log('[ME] Camera started — face detection running invisibly');
+    }).catch(err => {
+      console.warn('[ME] Camera denied or unavailable:', err.message);
+      meCameraRunning = false;
+    });
+  } else {
+    // Fallback: plain getUserMedia
+    navigator.mediaDevices.getUserMedia({ video: { width: 320, height: 240, facingMode: 'user' } })
+      .then(stream => {
+        videoEl.srcObject = stream;
+        meCameraRunning = true;
+        console.log('[ME] Camera started (fallback mode)');
+        // Manual detection loop
+        const detectLoop = async () => {
+          if (!sessionActive || !meFaceMesh) return;
+          try { await meFaceMesh.send({ image: videoEl }); } catch(e) {}
+          if (sessionActive) setTimeout(detectLoop, 200); // 5fps
+        };
+        videoEl.onloadeddata = () => detectLoop();
+      })
+      .catch(err => {
+        console.warn('[ME] Camera denied:', err.message);
+        meCameraRunning = false;
+      });
+  }
+}
+
+// State estimation tick — runs every 5 seconds
+function meStateTick() {
+  if (!sessionActive) return;
+
+  // Calibrator tick
+  meCalibrator.tick();
+
+  // Get arc context
+  const elapsed = session._getSessionMinutes();
+  const arcEnergy = session.arc ? session.arc.getTargetEnergy(elapsed) : 5;
+
+  // Feed arc target to state estimator (for sparse-signal drift)
+  meStateEstimator._arcTarget = arcEnergy;
+
+  // Estimate state
+  const rawState = meStateEstimator.estimate({
+    intent: [], // No pre-set intent — ME generates intent FROM state
+    calibrated: meCalibrator.calibrated
+  });
+
+  // Session 118: Signal Persistence Filter — only act on sustained shifts
+  const { state } = meSignalFilter.filter(rawState);
+
+  // Generate intent
+  meCurrentIntent = meIntentGenerator.generate(state, {
+    sessionElapsed: elapsed,
+    arcEnergy: arcEnergy,
+    signalRegime: state.raw?.signalRegime || 'unknown',
+    calibrated: meCalibrator.calibrated
+  });
+
+  // Update debug overlay — pass BOTH raw and filtered
+  meUpdateDebug(state, rawState, meCurrentIntent, arcEnergy, elapsed);
+}
+
+// Debug overlay update
+function meUpdateDebug(state, rawState, intent, arcEnergy, elapsed) {
+  if (!meDebugVisible) return;
+
+  const regime = state.raw?.signalRegime || 'unknown';
+  const calibProg = meCalibrator.calibrated ? 'CALIBRATED' : `${Math.round(meCalibrator.getProgress() * 100)}%`;
+  $('dbg-signal').innerHTML = `${regime} · cal: ${calibProg} · face: ${state.raw?.faceReadings || 0}`;
+
+  // Show RAW reads (F1 precision) vs CONFIRMED state (filtered)
+  const filterInfo = meSignalFilter.toJSON();
+  const rawE = rawState.energy.value.toFixed(2);
+  const rawI = rawState.immersion.value.toFixed(2);
+  const rawT = rawState.trajectory.direction;
+  const confE = state.energy.value.toFixed(2);
+  const confI = state.immersion.value.toFixed(2);
+
+  $('dbg-state').innerHTML =
+    `<span style="color:rgba(255,255,255,0.35)">RAW  E:${rawE} (${rawState.energy.level}) · I:${rawI} (${rawState.immersion.level}) · T:${rawT}</span><br>` +
+    `LIVE E: <span class="value">${confE}</span> (${state.energy.level}) · ` +
+    `I: <span class="value">${confI}</span> (${state.immersion.level}) · ` +
+    `T: ${state.trajectory.direction}` +
+    (filterInfo.pending.energy || filterInfo.pending.immersion || filterInfo.pending.trajectory
+      ? `<br><span style="color:#ff3b5c;font-size:9px">PENDING: ${[filterInfo.pending.energy, filterInfo.pending.immersion, filterInfo.pending.trajectory].filter(Boolean).join(' · ')}</span>`
+      : '');
+
+  if (intent) {
+    $('dbg-intent').textContent = intent.type.toUpperCase();
+    $('dbg-intent-reason').textContent = intent.reason;
+
+    const musicParams = meIntentGenerator.translateForMusic(intent, arcEnergy);
+    $('dbg-music').innerHTML = musicParams
+      ? `target E: <span class="value">${musicParams.targetEnergy.toFixed(1)}</span> (arc: ${arcEnergy.toFixed(1)}) · novelty: ${intent.dimensions.novelty}`
+      : 'no change';
+  }
+
+  $('dbg-filter').innerHTML = `filtered: ${filterInfo.stats.filtered} · confirmed: ${filterInfo.stats.confirmed}`;
+
+  const dyn = meIntentGenerator.getDynamics();
+  $('dbg-dynamics').innerHTML =
+    `peak: ${dyn.peakEnergy} @ ${dyn.peakTime}min · ` +
+    `warmup: ${dyn.warmupComplete ? dyn.warmupMinutes + 'min' : 'in progress'} · ` +
+    `snaps: ${dyn.minuteSnapshots}`;
+}
+
+// D key toggles debug overlay
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'd' || e.key === 'D') {
+    meDebugVisible = !meDebugVisible;
+    const el = $('me-debug');
+    if (el) el.classList.toggle('visible', meDebugVisible);
+  }
 });
 
-// Energy slider
-$('f-energy').addEventListener('input', () => { $('energy-val').textContent = $('f-energy').value; });
-
-function checkReady() {
-  const loc = $('f-location').value.trim();
-  const hasIntent = (chipSelections.intent || []).length > 0;
-  $('start-btn').className = (loc && hasIntent) ? 'ready' : '';
-  $('intake-status').textContent = !loc ? 'Enter your location' : !hasIntent ? 'Select your intent' : 'Ready';
+// ==================== ENTRY VIEW ====================
+function selectEnergy(el) {
+  document.querySelectorAll('.energy-dot').forEach(d => d.classList.remove('selected'));
+  el.classList.add('selected');
+  selectedEnergy = el.dataset.energy;
+  $('begin-btn').classList.add('ready');
 }
-$('f-location').addEventListener('input', checkReady);
+
+function selectDuration(el) {
+  document.querySelectorAll('.dur-opt').forEach(d => d.classList.remove('selected'));
+  el.classList.add('selected');
+  selectedDuration = parseInt(el.dataset.dur);
+}
+
+// ==================== ARC ENGINE ====================
+// 7-phase energy curve from the Feel Specification
+// Returns target energy (1-10 scale) at any point in the session
+
+class ArcEngine {
+  constructor(startEnergy, durationMin) {
+    this.duration = durationMin;
+    // Map entry selection to energy band
+    const bands = {
+      low:  { start: 2.5, peak: 6,   end: 1.5 },
+      mid:  { start: 4,   peak: 7.5, end: 3 },
+      high: { start: 6,   peak: 9,   end: 4.5 }
+    };
+    const b = bands[startEnergy] || bands.mid;
+
+    // 7 phases as proportions of session duration
+    // Phase 1: Meet You (0-10%)
+    // Phase 2: Settle In (10-27%)
+    // Phase 3: First Nudge (27-50%)
+    // Phase 4: Ride the Wave (50-73%)
+    // Phase 5: Peak moment (embedded — highest point in phase 4)
+    // Phase 6: Descent (73-90%)
+    // Phase 7: Resolution (90-100%)
+    this.points = [
+      { t: 0,    e: b.start },           // session opens
+      { t: 0.10, e: b.start },           // meet you — hold
+      { t: 0.27, e: b.start + 0.5 },     // settle — barely move
+      { t: 0.40, e: b.start + (b.peak - b.start) * 0.5 }, // nudge — halfway up
+      { t: 0.50, e: b.peak - 1 },        // building
+      { t: 0.62, e: b.peak },            // peak zone
+      { t: 0.73, e: b.peak - 0.5 },      // still riding
+      { t: 0.82, e: b.start + (b.peak - b.start) * 0.4 }, // descent
+      { t: 0.90, e: b.end + 1 },         // winding down
+      { t: 1.00, e: b.end }              // resolution
+    ];
+
+    this.phaseName = [
+      'meet_you', 'meet_you', 'settle_in', 'first_nudge', 'building',
+      'peak', 'riding', 'descent', 'winding_down', 'resolution'
+    ];
+  }
+
+  // Get target energy at a given session minute
+  getTargetEnergy(minutesElapsed) {
+    const p = Math.min(1, minutesElapsed / this.duration);
+    for (let i = 1; i < this.points.length; i++) {
+      if (this.points[i].t >= p) {
+        const prev = this.points[i - 1], curr = this.points[i];
+        const pct = (p - prev.t) / (curr.t - prev.t);
+        return prev.e + pct * (curr.e - prev.e);
+      }
+    }
+    return this.points[this.points.length - 1].e;
+  }
+
+  // Get current phase name
+  getPhase(minutesElapsed) {
+    const p = Math.min(1, minutesElapsed / this.duration);
+    for (let i = this.points.length - 1; i >= 0; i--) {
+      if (p >= this.points[i].t) return this.phaseName[i];
+    }
+    return this.phaseName[0];
+  }
+}
+
+// ==================== TRANSITION LOGGER ====================
+class TransitionLog {
+  constructor() {
+    this.entries = [];
+    this.keyClashes = 0;
+    this.totalTransitions = 0;
+  }
+
+  log(fromTrack, toTrack, reason) {
+    const entry = {
+      time: new Date().toISOString(),
+      from: fromTrack ? { id: fromTrack.id, title: fromTrack.title, camelot: fromTrack.camelot, energy10: fromTrack.energy10 } : null,
+      to: { id: toTrack.id, title: toTrack.title, camelot: toTrack.camelot, energy10: toTrack.energy10 },
+      reason,
+      keyCompatible: true
+    };
+
+    // Check key compatibility
+    if (fromTrack && fromTrack.camelot && toTrack.camelot) {
+      const compatible = TrackRepository.CAMELOT_WHEEL[fromTrack.camelot] || [];
+      entry.keyCompatible = compatible.includes(toTrack.camelot);
+      if (!entry.keyCompatible) this.keyClashes++;
+    }
+
+    this.entries.push(entry);
+    if (fromTrack) this.totalTransitions++;
+    console.log(`[TRANSITION] ${fromTrack ? fromTrack.title : 'START'} → ${toTrack.title} | key: ${entry.keyCompatible ? 'OK' : 'CLASH'} | ${reason.type}`);
+    return entry;
+  }
+
+  getSummary() {
+    return {
+      tracksPlayed: this.entries.length,
+      transitions: this.totalTransitions,
+      keyClashes: this.keyClashes
+    };
+  }
+}
 
 // ==================== CROSSFADE MANAGER ====================
-// Dual YT.Player instances with 8s sin/cos crossfade at mix-out points.
-// Proxies the YT.Player API so existing ytPlayer.xxx calls work unchanged.
+// Dual YT.Player with sin/cos crossfade — audio only (players hidden)
 const cfm = {
   players: { A: null, B: null },
   ready: { A: false, B: false },
@@ -600,50 +631,69 @@ const cfm = {
   fading: false,
   fadeTimer: null,
   monitorTimer: null,
+  currentTrack: null,     // repo track object for active player
+  trackStartTime: null,   // when current track started playing
 
   init() {
     this.players.A = new YT.Player('ytPlayerA', {
-      height: '100%', width: '100%',
-      playerVars: { autoplay: 0, controls: 1, modestbranding: 1, rel: 0, playsinline: 1, iv_load_policy: 3, fs: 0 },
-      events: { onReady: () => { this.ready.A = true; playerReady = true; }, onStateChange: (e) => this._onState('A', e) }
+      host: 'https://www.youtube-nocookie.com',
+      height: '180', width: '320',
+      playerVars: { autoplay: 0, controls: 0, modestbranding: 1, rel: 0, playsinline: 1, iv_load_policy: 3, fs: 0, disablekb: 1 },
+      events: {
+        onReady: () => { this.ready.A = true; console.log('[CFM] Player A ready'); if (this._pendingTrack) this.play(this._pendingTrack.track, this._pendingTrack.seekTime); },
+        onStateChange: (e) => this._onState('A', e)
+      }
     });
     this.players.B = new YT.Player('ytPlayerB', {
-      height: '100%', width: '100%',
-      playerVars: { autoplay: 0, controls: 0, modestbranding: 1, rel: 0, playsinline: 1, iv_load_policy: 3, fs: 0 },
-      events: { onReady: () => { this.ready.B = true; }, onStateChange: (e) => this._onState('B', e) }
+      host: 'https://www.youtube-nocookie.com',
+      height: '180', width: '320',
+      playerVars: { autoplay: 0, controls: 0, modestbranding: 1, rel: 0, playsinline: 1, iv_load_policy: 3, fs: 0, disablekb: 1 },
+      events: {
+        onReady: () => { this.ready.B = true; console.log('[CFM] Player B ready'); },
+        onStateChange: (e) => this._onState('B', e)
+      }
     });
     this.monitorTimer = setInterval(() => this._monitor(), 1000);
-  },
-
-  // Proxy API — matches YT.Player interface for drop-in replacement
-  getPlayerState() { try { return this._ap().getPlayerState(); } catch(e) { return -1; } },
-  getVolume() { try { return this._ap().getVolume(); } catch(e) { return 100; } },
-  setVolume(v) { if (!this.fading) { try { this._ap().setVolume(v); } catch(e) {} } },
-  getVideoData() { try { return this._ap().getVideoData(); } catch(e) { return {}; } },
-  getDuration() { try { return this._ap().getDuration(); } catch(e) { return 0; } },
-  getCurrentTime() { try { return this._ap().getCurrentTime(); } catch(e) { return 0; } },
-  loadVideoById(arg) { try { this._ap().loadVideoById(arg); } catch(e) {} },
-  pauseVideo() { try { this._ap().pauseVideo(); } catch(e) {} },
-  playVideo() { try { this._ap().playVideo(); } catch(e) {} },
-  seekTo(t, a) { try { this._ap().seekTo(t, a); } catch(e) {} },
-  stopVideo() {
-    try { this.players.A.stopVideo(); } catch(e) {}
-    try { this.players.B.stopVideo(); } catch(e) {}
-    if (this.fadeTimer) { clearInterval(this.fadeTimer); this.fadeTimer = null; }
-    this.fading = false;
   },
 
   _ap() { return this.players[this.active]; },
   _ip() { return this.players[this.active === 'A' ? 'B' : 'A']; },
 
+  getPlayerState() { try { return this._ap().getPlayerState(); } catch(e) { return -1; } },
+  getCurrentTime() { try { return this._ap().getCurrentTime(); } catch(e) { return 0; } },
+  getDuration() { try { return this._ap().getDuration(); } catch(e) { return 0; } },
+
+  play(track, seekTime) {
+    this.currentTrack = track;
+    this.trackStartTime = Date.now();
+    const p = this._ap();
+    if (!p || typeof p.loadVideoById !== 'function') {
+      console.warn('[CFM] Player not ready — queuing track for retry');
+      this._pendingTrack = { track, seekTime };
+      return;
+    }
+    try {
+      if (seekTime > 0) {
+        p.loadVideoById({ videoId: track.id, startSeconds: seekTime });
+      } else {
+        p.loadVideoById(track.id);
+      }
+      p.setVolume(100);
+      this._pendingTrack = null;
+    } catch(e) { console.error('[CFM] play error', e); }
+  },
+
   _onState(which, event) {
-    if (which !== this.active) return;
-    if (this.fading) return; // suppress all state changes during crossfade
-    onPlayerState(event);
+    if (which !== this.active || this.fading) return;
+    if (event.data === YT.PlayerState.PLAYING) {
+      session.onTrackPlaying();
+    } else if (event.data === YT.PlayerState.ENDED) {
+      session.onTrackEnded();
+    }
   },
 
   _monitor() {
-    if (this.fading) return;
+    if (this.fading || !this.currentTrack) return;
     const p = this._ap();
     if (!p || !this.ready[this.active]) return;
     try {
@@ -652,1027 +702,477 @@ const cfm = {
       const dur = p.getDuration();
       if (!dur || dur <= 0) return;
 
-      const track = currentQueue[currentIndex];
-      const mixOut = track?._repo?.mixOut;
-      // Use mix-out point minus 8s if available, otherwise duration minus 10s
+      // Minimum play time: 90 seconds
+      const elapsed = (Date.now() - this.trackStartTime) / 1000;
+      if (elapsed < 90) return;
+
+      // Use mix-out point if available, else duration - 10
+      const mixOut = this.currentTrack.mixOut;
       const fadeStart = (mixOut && mixOut > 16) ? mixOut - 8 : dur - 10;
 
       if (ct >= fadeStart && ct < dur - 1) {
-        this._startCrossfade();
+        session.onReadyForNext();
       }
     } catch(e) {}
   },
 
-  _startCrossfade() {
+  crossfadeTo(track, seekTime) {
     if (this.fading) return;
     const inKey = this.active === 'A' ? 'B' : 'A';
     if (!this.ready[inKey]) return;
-    if (currentIndex >= currentQueue.length - 1) return; // no next track
 
     this.fading = true;
-    const next = currentQueue[currentIndex + 1];
     const ip = this._ip();
-    const current = currentQueue[currentIndex];
-    const fadeDuration = 8; // 40 steps * 200ms
-    console.log(`[CROSSFADE] crossfade-started | ${new Date().toISOString()} | from=${current?.id || 'unknown'} to=${next?.id || 'unknown'} | duration=${fadeDuration}s`);
 
     ip.setVolume(0);
-    const seekTo = next._seekTime || 0;
-    ip.loadVideoById(seekTo > 0 ? { videoId: next.id, startSeconds: seekTo } : next.id);
+    if (seekTime > 0) {
+      ip.loadVideoById({ videoId: track.id, startSeconds: seekTime });
+    } else {
+      ip.loadVideoById(track.id);
+    }
 
-    // Wait for inactive to start playing, with 5s timeout fallback
+    // Wait for inactive player to start, then fade
     let waited = 0;
     const wid = setInterval(() => {
       waited += 250;
       try {
         if (ip.getPlayerState() === YT.PlayerState.PLAYING) {
           clearInterval(wid);
-          this._fade();
+          this._fade(track);
         } else if (waited > 5000) {
           clearInterval(wid);
-          this.fading = false; // fallback: let normal ENDED handler take over
+          this.fading = false;
+          // Fallback: hard cut
+          session.onTrackEnded();
         }
       } catch(e) { clearInterval(wid); this.fading = false; }
     }, 250);
   },
 
-  _fade() {
+  _fade(nextTrack) {
     const ap = this._ap();
     const ip = this._ip();
-    const steps = 40, ms = 200; // 40 steps * 200ms = 8s
+    const steps = 40, ms = 200; // 8s crossfade
     let step = 0;
-    const vol0 = ap.getVolume();
+    const vol0 = 100;
 
     this.fadeTimer = setInterval(() => {
       step++;
       const p = step / steps;
-      // Sin/cos curve for natural-sounding crossfade
       try {
         ap.setVolume(Math.round(vol0 * Math.cos(p * Math.PI / 2)));
         ip.setVolume(Math.round(100 * Math.sin(p * Math.PI / 2)));
       } catch(e) {}
 
-      // Swap visual layer at midpoint
-      if (step === 20) {
-        const wA = document.getElementById('cf-wrap-A');
-        const wB = document.getElementById('cf-wrap-B');
-        if (wA && wB) {
-          wA.style.zIndex = this.active === 'A' ? '0' : '1';
-          wB.style.zIndex = this.active === 'A' ? '1' : '0';
-        }
-      }
-
       if (step >= steps) {
         clearInterval(this.fadeTimer);
         this.fadeTimer = null;
-        this._complete();
+        this._complete(nextTrack);
       }
     }, ms);
   },
 
-  _complete() {
+  _complete(nextTrack) {
     try { this._ap().stopVideo(); } catch(e) {}
     this.active = this.active === 'A' ? 'B' : 'A';
     this.fading = false;
-
-    currentIndex++;
-    renderQueue();
-
-    const track = currentQueue[currentIndex];
-    if (track) {
-      $('playIcon').innerHTML = '<path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/>';
-      $('trackTitle').textContent = track.title || 'Playing';
-      $('trackArtist').textContent = track.artist || '';
-      const dur = track.duration || 0;
-      if (engine) engine.setCurrentTrack({ title: track.title, artist: track.artist, id: track.id, duration: dur });
-      if (logger) logger.logMusic('crossfade', { id: track.id, title: track.title, artist: track.artist }, { reason: 'crossfade_complete' });
-      if (engine?.musicBrain) {
-        engine.musicBrain.onTrackPlayed(track);
-        engine.musicBrain.trackArtist(track.artist);
-      }
-    }
-
-    // Ensure z-index matches new active player
-    const wA = document.getElementById('cf-wrap-A');
-    const wB = document.getElementById('cf-wrap-B');
-    if (wA && wB) {
-      wA.style.zIndex = this.active === 'A' ? '1' : '0';
-      wB.style.zIndex = this.active === 'A' ? '0' : '1';
-    }
-
-    console.log(`[CROSSFADE] → Player ${this.active}`);
+    this.currentTrack = nextTrack;
+    this.trackStartTime = Date.now();
+    session.onTrackPlaying();
+    console.log(`[CFM] Crossfade complete → Player ${this.active}`);
   },
 
-  // Cancel any in-progress crossfade (e.g., user skip)
-  cancelFade() {
-    if (!this.fading) return;
-    const current = currentQueue[currentIndex];
-    const next = currentQueue[currentIndex + 1];
-    console.log(`[CROSSFADE] cancelFade | ${new Date().toISOString()} | from=${current?.id || 'unknown'} to=${next?.id || 'unknown'}`);
+  stop() {
     if (this.fadeTimer) { clearInterval(this.fadeTimer); this.fadeTimer = null; }
-    try { this._ip().stopVideo(); } catch(e) {}
+    if (this.monitorTimer) { clearInterval(this.monitorTimer); this.monitorTimer = null; }
+    try { this.players.A.stopVideo(); } catch(e) {}
+    try { this.players.B.stopVideo(); } catch(e) {}
     this.fading = false;
-    // Reset z-index
-    const wA = document.getElementById('cf-wrap-A');
-    const wB = document.getElementById('cf-wrap-B');
-    if (wA && wB) {
-      wA.style.zIndex = this.active === 'A' ? '1' : '0';
-      wB.style.zIndex = this.active === 'A' ? '0' : '1';
+  }
+};
+
+// ==================== GLOW ENGINE ====================
+// Maps current track energy to ambient glow
+const glowEngine = {
+  currentHue: 220,
+  currentSize: 300,
+  currentOpacity: 0.04,
+
+  update(energy10) {
+    // energy10: 1-10 scale
+    // Hue: 220 (cool blue/indigo) → 340 (warm pink/magenta) as energy rises
+    const hue = 220 + (Math.min(10, Math.max(1, energy10)) - 1) * (120 / 9);
+    // Size: 300px → 650px
+    const size = 300 + (energy10 - 1) * (350 / 9);
+    // Opacity: 0.03 → 0.09
+    const opacity = 0.03 + (energy10 - 1) * (0.06 / 9);
+
+    const glow = $('glow');
+    if (!glow) return;
+    glow.style.background = `radial-gradient(circle, hsla(${Math.round(hue)}, 60%, 40%, ${opacity.toFixed(3)}) 0%, transparent 70%)`;
+    glow.style.width = `${Math.round(size)}px`;
+    glow.style.height = `${Math.round(size)}px`;
+  },
+
+  // Get energy at current playback position from the track's curve
+  getTrackEnergy(track, playbackTime) {
+    if (!track || !track.curve || track.curve.length < 2) return track ? track.energy10 || 5 : 5;
+    // curve is [[t, e], [t, e], ...] — t in seconds, e in raw RMS
+    const curve = track.curve;
+    for (let i = 1; i < curve.length; i++) {
+      if (curve[i][0] >= playbackTime) {
+        const prev = curve[i - 1], curr = curve[i];
+        const pct = (playbackTime - prev[0]) / (curr[0] - prev[0]);
+        const rawE = prev[1] + pct * (curr[1] - prev[1]);
+        return rawEnergyTo10(rawE);
+      }
+    }
+    return rawEnergyTo10(curve[curve.length - 1][1]);
+  }
+};
+
+function rawEnergyTo10(raw) {
+  if (!raw || raw <= 0) return 1;
+  const db = 20 * Math.log10(raw);
+  return Math.max(1, Math.min(10, 1 + (db + 34) * (9 / 26)));
+}
+
+// ==================== SESSION CONTROLLER ====================
+const session = {
+  arc: null,
+  repo: null,
+  log: null,
+  timerInterval: null,
+  glowInterval: null,
+  playedIds: [],
+  recentArtists: [],
+  tracksPlayed: 0,
+
+  start(energy, durationMin) {
+    this.arc = new ArcEngine(energy, durationMin);
+    this.log = new TransitionLog();
+    this.playedIds = [];
+    this.recentArtists = [];
+    this.tracksPlayed = 0;
+
+    // Initialize TrackRepository
+    this.repo = new TrackRepository();
+    if (window.TRACK_REPOSITORY_DATA) {
+      this.repo.load(window.TRACK_REPOSITORY_DATA);
+      console.log(`[SESSION] Loaded ${this.repo.tracks.length} tracks`);
+    }
+
+    sessionActive = true;
+    sessionStartTime = Date.now();
+
+    // === ME INTELLIGENCE LAYER INIT ===
+    meCalibrator.start();
+    meStartCamera();
+    // State tick every 5 seconds
+    meStateTickInterval = setInterval(meStateTick, 5000);
+    console.log('[ME] Intelligence layer initialized — calibrating (2 min)');
+
+    // Start timer display
+    this.timerInterval = setInterval(() => this._updateTimer(), 1000);
+
+    // Start glow update (every 2 seconds)
+    this.glowInterval = setInterval(() => this._updateGlow(), 2000);
+
+    // Select and play first track
+    this._selectAndPlay(null);
+  },
+
+  _getSessionMinutes() {
+    if (!sessionStartTime) return 0;
+    return (Date.now() - sessionStartTime) / 60000;
+  },
+
+  _updateTimer() {
+    const elapsed = this._getSessionMinutes();
+    const mins = Math.floor(elapsed);
+    const secs = Math.floor((elapsed - mins) * 60);
+    $('session-timer').textContent = `${String(mins).padStart(2,'0')}:${String(secs).padStart(2,'0')}`;
+
+    // Check if session should end
+    if (elapsed >= selectedDuration) {
+      this.end();
     }
   },
 
-  destroy() {
-    if (this.monitorTimer) { clearInterval(this.monitorTimer); this.monitorTimer = null; }
-    this.cancelFade();
-    this.stopVideo();
-  }
-};
+  _updateGlow() {
+    if (!cfm.currentTrack || !sessionActive) return;
 
-// ==================== YOUTUBE PLAYER ====================
-window.onYouTubeIframeAPIReady = function() {
-  cfm.init();
-  ytPlayer = cfm; // proxy — all existing ytPlayer.xxx calls work through cfm
-};
-
-function onPlayerState(event) {
-  const st = event.data;
-  if (st === YT.PlayerState.PLAYING) {
-    $('playIcon').innerHTML = '<path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/>';
-    const info = ytPlayer.getVideoData();
-    $('trackTitle').textContent = info.title || 'Playing';
-    $('trackArtist').textContent = info.author || '';
-    const dur = ytPlayer.getDuration ? ytPlayer.getDuration() : 0;
-    if (engine) engine.setCurrentTrack({ title: info.title, artist: info.author, id: info.video_id, duration: dur });
-    // V4: Log music play + track artist for variety
-    if (logger) logger.logMusic('play', { id: info.video_id, title: info.title, artist: info.author }, { reason: 'auto_play' });
-    if (engine?.musicBrain) engine.musicBrain.trackArtist(info.author);
-  } else if (st === YT.PlayerState.PAUSED) {
-    $('playIcon').innerHTML = '<path d="M8 5v14l11-7z"/>';
-  } else if (st === YT.PlayerState.ENDED) {
-    if (logger) logger.logMusic('end', currentQueue[currentIndex]);
-    if (currentIndex < currentQueue.length - 1) {
-      currentIndex++;
-      playTrack(currentQueue[currentIndex]);
-      renderQueue();
-    } else {
-      loadMoreMusic();
-    }
-  }
-}
-
-function playTrack(track) {
-  if (!ytPlayer || !playerReady || !track) return;
-  // Cancel any in-progress crossfade (e.g., user skip or engine search_and_play)
-  if (cfm.fading) cfm.cancelFade();
-  const seekTo = track._seekTime || 0;
-  if (seekTo > 0) {
-    ytPlayer.loadVideoById({ videoId: track.id, startSeconds: seekTo });
-  } else {
-    ytPlayer.loadVideoById(track.id);
-  }
-  $('trackTitle').textContent = track.title;
-  $('trackArtist').textContent = track.artist;
-  // V5: Track played for harmonic mixing continuity
-  if (engine && engine.musicBrain) engine.musicBrain.onTrackPlayed(track);
-}
-
-function playPauseToggle() {
-  if (!ytPlayer || !playerReady) return;
-  const st = ytPlayer.getPlayerState();
-  if (st === YT.PlayerState.PLAYING) ytPlayer.pauseVideo();
-  else if (st === YT.PlayerState.PAUSED) ytPlayer.playVideo();
-  else if (currentQueue.length > 0) playTrack(currentQueue[currentIndex]);
-}
-
-// ==================== MUSIC LOADING ====================
-async function loadInitialMusic(queries) {
-  $('sess-status').textContent = 'Finding music...';
-  if (!ytSearch) ytSearch = new YouTubeSearch(YT_API_KEY);
-
-  let allTracks = [];
-
-  // V5: REPO-FIRST — seed initial queue from pre-analyzed tracks
-  const repo = engine && engine.musicBrain && engine.musicBrain.trackRepo;
-  if (repo && repo.loaded) {
-    const targetEnergy = engine.musicBrain.getTargetEnergy ? engine.musicBrain.getTargetEnergy(0) : 5;
-    const repoTracks = repo.query({ targetEnergy, maxResults: 15 });
-    const formatted = repoTracks.map(t => {
-      const ft = repo.toPlayerFormat(t);
-      ft._seekTime = repo.getSectionSeek(t.id, targetEnergy);
-      return ft;
-    });
-    allTracks = formatted;
-    console.log(`[REPO] Initial queue: ${allTracks.length} pre-analyzed tracks`);
-    $('sess-status').textContent = `Intelligent mode — ${allTracks.length} analyzed tracks`;
-  }
-
-  // Supplement with YouTube search if repo didn't fill enough
-  if (allTracks.length < 8) {
-    for (const q of queries) {
-      let tracks = await ytSearch.search(q.query, q.count + 5);
-      tracks = engine.filterYouTubeResults(tracks);
-      tracks = engine.musicBrain.sortByArtistVariety(tracks);
-      if (tracks.length > 0) {
-        allTracks = allTracks.concat(tracks.slice(0, q.count));
-        if (logger) logger.logMusic('search', null, { query: q.query, reason: 'initial' });
-      }
-    }
-  }
-
-  if (allTracks.length === 0) {
-    const intents = chipSelections.intent || ['unwind'];
-    allTracks = ytSearch.getMixedFallback(intents);
-    console.log(`[MUSIC] Using fallback library: ${allTracks.length} tracks for intents [${intents}]`);
-    $('sess-status').textContent = `Fallback mode — ${allTracks.length} curated tracks`;
-  }
-
-  currentQueue = shuffle(allTracks);
-  currentIndex = 0;
-  renderQueue();
-
-  if (currentQueue.length > 0) {
-    playTrack(currentQueue[0]);
-    if (!$('sess-status').textContent.startsWith('Fallback') && !$('sess-status').textContent.startsWith('Intelligent')) {
-      $('sess-status').textContent = `Live search — ${currentQueue.length} tracks queued`;
-    }
-  } else {
-    $('sess-status').textContent = 'No tracks found — try different vibe';
-  }
-}
-
-async function loadMoreMusic() {
-  if (!engine) return;
-  const q = engine.getNextSearchQuery();
-  if (!q) return;
-
-  // V5: If getNextSearchQuery returned a repo track, use it directly
-  if (q.repoTrack) {
-    const track = q.repoTrack;
-    track._seekTime = q.seekTime || 0;
-    currentQueue.splice(currentIndex + 1, 0, track);
-    if (logger) logger.logMusic('search', track, { query: q.reason, reason: 'repo_select' });
-    const st = engine.stateEstimator?.getState?.();
-    const it = engine.intentGenerator?.currentIntent;
-    logMusicDecision(track, q.reason || 'repo_select', it?.type, st);
-    currentIndex++;
-    playTrack(currentQueue[currentIndex]);
-    renderQueue();
-    return;
-  }
-
-  // Fallback: YouTube search
-  if (!ytSearch) return;
-  let tracks = await ytSearch.search(q.query, 10);
-  tracks = engine.filterYouTubeResults(tracks);
-  tracks = engine.musicBrain.sortByArtistVariety(tracks);
-  if (tracks.length === 0) {
-    const fallbackType = q.energy >= 6 ? 'STIMULATE' : q.energy >= 4 ? 'TRANSITION' : 'REGULATE';
-    tracks = ytSearch.getFallbackTracks(fallbackType);
-  }
-  if (logger) logger.logMusic('search', null, { query: q.query, reason: 'auto_refill' });
-
-  currentQueue = currentQueue.concat(shuffle(tracks));
-  renderQueue();
-  if (currentQueue.length > currentIndex + 1) {
-    currentIndex++;
-    const st = engine.stateEstimator?.getState?.();
-    const it = engine.intentGenerator?.currentIntent;
-    logMusicDecision(currentQueue[currentIndex], q.query || 'yt_search', it?.type, st);
-    playTrack(currentQueue[currentIndex]);
-  }
-}
-
-function renderQueue() {
-  if (currentQueue.length <= 1) { $('queue-section').style.display = 'none'; return; }
-  $('queue-section').style.display = 'block';
-  let html = '';
-  for (let i = currentIndex; i < Math.min(currentQueue.length, currentIndex + 6); i++) {
-    const t = currentQueue[i];
-    const isActive = i === currentIndex;
-    html += `<div class="queue-item ${isActive ? 'active' : ''}" onclick="jumpTo(${i})">
-      <div class="queue-art"><img src="${t.thumb || `https://i.ytimg.com/vi/${t.id}/default.jpg`}" loading="lazy"></div>
-      <div><div class="queue-title">${t.title}</div><div class="queue-artist">${t.artist}</div></div>
-    </div>`;
-  }
-  $('queue-list').innerHTML = html;
-}
-
-function jumpTo(idx) {
-  if (logger) logger.logMusic('skip', currentQueue[currentIndex], { reason: 'user_skip' });
-  if (engine) engine.onTrackSkipped(); // V4: wire skip to state estimator
-  currentIndex = idx;
-  playTrack(currentQueue[idx]);
-  renderQueue();
-}
-
-function shuffle(a) { a = [...a]; for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; }
-
-// ==================== SENSORS ====================
-async function startSensors() {
-  try {
-    if (typeof DeviceMotionEvent !== 'undefined' && typeof DeviceMotionEvent.requestPermission === 'function') {
-      const perm = await DeviceMotionEvent.requestPermission();
-      if (perm !== 'granted') return;
-    }
-    window.addEventListener('devicemotion', e => {
-      const a = e.accelerationIncludingGravity || {};
-      motionData.ax = a.x || 0; motionData.ay = a.y || 0; motionData.az = a.z || 0;
-      const r = e.rotationRate || {};
-      motionData.gx = r.alpha || 0; motionData.gy = r.beta || 0; motionData.gz = r.gamma || 0;
-    });
-  } catch (e) {}
-
-  try {
-    if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
-      await DeviceOrientationEvent.requestPermission();
-    }
-    window.addEventListener('deviceorientation', e => {
-      orientData.alpha = e.alpha || 0; orientData.beta = e.beta || 0; orientData.gamma = e.gamma || 0;
-    });
-  } catch (e) {}
-
-  sensorSendId = setInterval(() => {
-    if (!engine || !engine.active) return;
-    const r = v => Math.round(v * 100) / 100;
-    const sensorPayload = {
-      accel: { x: r(motionData.ax), y: r(motionData.ay), z: r(motionData.az) },
-      gyro: { x: r(motionData.gx), y: r(motionData.gy), z: r(motionData.gz) },
-      orient: { alpha: r(orientData.alpha), beta: r(orientData.beta), gamma: r(orientData.gamma) }
-    };
-    engine.ingestSensorData(sensorPayload);
-    // V4: Log sensor data (downsampled in logger)
-    if (logger) logger.logSensor({
-      ax: r(motionData.ax), ay: r(motionData.ay), az: r(motionData.az),
-      gx: r(motionData.gx), gy: r(motionData.gy), gz: r(motionData.gz)
-    });
-  }, 1000);
-}
-
-// ==================== FACE DETECTION (MediaPipe Face Mesh — 478 landmarks, script tag) ====================
-let faceMeshInstance = null;
-let _faceScriptWaitMs = 0; // module-level so it persists across retries
-
-async function startFaceDetection() {
-  const faceStatus = (msg) => console.log(`[FACE] ${msg}`);
-  const ua = navigator.userAgent;
-  const isIOS = /iPad|iPhone|iPod/.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
-  const isAndroid = /Android/.test(ua);
-  const isMobile = isIOS || isAndroid;
-  faceStatus(`Device: ${isIOS ? 'iOS' : isAndroid ? 'Android' : 'Desktop'}, UA: ${ua.slice(0, 80)}`);
-
-  // Wait for CDN script — retry up to 15s
-  if (typeof FaceMesh === 'undefined') {
-    if (_faceScriptWaitMs >= 15000) {
-      faceStatus('✗ MediaPipe script never loaded after 15s — CDN blocked or slow network');
-      return;
-    }
-    faceStatus(`Waiting for MediaPipe script from CDN... (${_faceScriptWaitMs / 1000}s)`);
-    _faceScriptWaitMs += 2000;
-    setTimeout(startFaceDetection, 2000);
-    return;
-  }
-  _faceScriptWaitMs = 0; // reset for potential future re-init
-  faceStatus('✓ FaceMesh class available');
-
-  // Initialize FaceMesh — try with refineLandmarks, fall back without (older WASM)
-  try {
-    faceMeshInstance = new FaceMesh({
-      locateFile: (file) => {
-        const url = `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh@0.4.1633559619/${file}`;
-        faceStatus(`Loading WASM: ${file}`);
-        return url;
-      }
-    });
-
-    // Try with iris refinement (478 landmarks). If unsupported, retry without.
-    try {
-      faceMeshInstance.setOptions({
-        selfieMode: true,
-        maxNumFaces: 1,
-        refineLandmarks: true,
-        minDetectionConfidence: 0.3,
-        minTrackingConfidence: 0.3
-      });
-      faceStatus('✓ Options set (refineLandmarks: true, 478 landmarks)');
-    } catch (optErr) {
-      faceStatus('refineLandmarks not supported in this version, using 468 landmarks');
-      faceMeshInstance.setOptions({
-        selfieMode: true,
-        maxNumFaces: 1,
-        minDetectionConfidence: 0.3,
-        minTrackingConfidence: 0.3
-      });
-    }
-
-    faceAnalyzer = new FaceAnalyzer();
-
-    let onResultsCalls = 0;
-    faceMeshInstance.onResults((results) => {
-      onResultsCalls++;
-      if (onResultsCalls <= 3) faceStatus(`onResults #${onResultsCalls}, faces: ${results.multiFaceLandmarks ? results.multiFaceLandmarks.length : 0}, landmarks: ${results.multiFaceLandmarks?.[0]?.length || 0}`);
-      if (!engine || !engine.active) return;
-      if (results.multiFaceLandmarks && results.multiFaceLandmarks.length > 0) {
-        const landmarks = results.multiFaceLandmarks[0];
-        const faceData = faceAnalyzer.analyze(landmarks);
-        faceData.detectionConfidence = 0.8;
-        if (!faceModelLoaded) {
-          faceModelLoaded = true;
-          faceStatus(`✓ First face detected — ${landmarks.length} landmarks, model active`);
-        }
-        engine.ingestFaceData(faceData);
-        if (logger) logger.logFace(faceData);
-      }
-    });
-
-    faceStatus('✓ FaceMesh instance created');
-  } catch (e) {
-    faceStatus(`✗ FaceMesh init failed: ${e.message}`);
-    return;
-  }
-
-  // Start camera — progressive fallback for cross-device compatibility
-  const cameraConstraints = [
-    { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 } },
-    { facingMode: 'user' },
-    { width: { ideal: 640 }, height: { ideal: 480 } },
-    true  // last resort: any camera, any resolution
-  ];
-
-  let stream = null;
-  for (let i = 0; i < cameraConstraints.length; i++) {
-    try {
-      faceStatus(`Camera attempt ${i + 1}/${cameraConstraints.length}...`);
-      stream = await navigator.mediaDevices.getUserMedia({ video: cameraConstraints[i] });
-      break;
-    } catch (e) {
-      faceStatus(`Camera attempt ${i + 1} failed: ${e.name} — ${e.message}`);
-    }
-  }
-
-  if (!stream) {
-    faceStatus('✗ All camera attempts failed — face detection disabled');
-    return;
-  }
-
-  const video = $('face-video');
-  video.srcObject = stream;
-  try {
-    await new Promise((resolve, reject) => {
-      video.onloadedmetadata = () => video.play().then(resolve).catch(reject);
-      setTimeout(() => reject(new Error('Video metadata timeout')), 10000);
-    });
-  } catch (e) {
-    faceStatus(`✗ Video play failed: ${e.message}`);
-    return;
-  }
-  faceStatus(`✓ Camera active — ${video.videoWidth}x${video.videoHeight}`);
-
-  // Face detection loop
-  let sendCount = 0;
-  let sendErrors = 0;
-  let consecutiveErrors = 0;
-  async function runFaceLoop() {
-    if (!engine || !engine.active) {
-      faceDetectId = setTimeout(runFaceLoop, 3000);
-      return;
-    }
-    sendCount++;
-    try {
-      await faceMeshInstance.send({ image: video });
-      consecutiveErrors = 0;
-    } catch (e) {
-      sendErrors++;
-      consecutiveErrors++;
-      if (sendErrors <= 5) faceStatus(`✗ send() error #${sendErrors}: ${e.message || e}`);
-      // If WASM crashed (5+ consecutive errors), stop retrying
-      if (consecutiveErrors >= 10) {
-        faceStatus('✗ WASM appears crashed (10 consecutive errors) — stopping face loop');
+    // === ME: Glow follows YOUR state, not the track's energy ===
+    if (meCurrentIntent && meCalibrator.calibrated) {
+      const state = meStateEstimator.state;
+      const glowParams = meIntentGenerator.translateForGlow(meCurrentIntent, state.energy.value);
+      if (glowParams) {
+        glowEngine.update(glowParams.energy);
+        // Apply transition speed via CSS
+        const glow = $('glow');
+        if (glow) glow.style.transition = `all ${glowParams.transitionMs}ms ease`;
         return;
       }
     }
-    if (sendCount === 5 || sendCount === 15 || sendCount === 30) {
-      faceStatus(`Progress: ${sendCount} sends, ${sendErrors} errors, detected=${faceModelLoaded}`);
+
+    // Fallback: track energy drives glow (pre-calibration or no signal)
+    const ct = cfm.getCurrentTime();
+    const energy = glowEngine.getTrackEnergy(cfm.currentTrack, ct);
+    glowEngine.update(energy);
+  },
+
+  _selectAndPlay(fromTrack) {
+    const elapsed = this._getSessionMinutes();
+    const arcEnergy = this.arc.getTargetEnergy(elapsed);
+    const phase = this.arc.getPhase(elapsed);
+    const remaining = selectedDuration - elapsed;
+
+    // === ME INTENT-DRIVEN SELECTION ===
+    // If intent says "hold" or "don't change", extend current track
+    if (meCurrentIntent && meCurrentIntent.type === 'hold' && fromTrack) {
+      console.log(`[ME] Intent: HOLD — extending current track (flow state)`);
+      return; // Don't change track
     }
-    // Adaptive interval: 2s desktop, 3s mobile (save battery)
-    faceDetectId = setTimeout(runFaceLoop, isMobile ? 3000 : 2000);
-  }
-  faceDetectId = setTimeout(runFaceLoop, 1000);
-}
 
-// ==================== ENGINE EVENTS ====================
-function setupEngineHandlers() {
-  engine.on('state', data => {
-    if (data.type === 'state_update') {
-      updateSessionUI(data);
-      updateDebugState(data);
-      if (logger) logger.logTick(data);
-    }
-    if (data.type === 'calibration' && data.status === 'complete') {
-      $('cal-section').style.display = 'none';
-      $('sess-status').textContent = 'Calibrated — listening';
-    }
-  });
-
-  engine.on('command', cmd => {
-    if (cmd.type === 'nudge') showNudge(cmd.text, cmd.decision);
-    if (cmd.type === 'haptic') triggerHaptic(cmd.pattern);
-    if (cmd.type === 'music') handleMusicCommand(cmd);
-    if (cmd.type === 'session_ending') {
-      $('sess-status').textContent = 'Winding down...';
-      $('sess-status').style.color = 'rgba(255,255,255,0.4)';
-    }
-  });
-
-  engine.on('log', entry => {
-    addDebugLog(entry);
-    // Log feedback outcomes to analytics
-    if (entry.type === 'feedback' && entry.outcome && logger) {
-      logger.logFeedbackOutcome(entry.outcome);
-    }
-  });
-
-  engine.on('intervention', decision => {
-    if (logger) logger.logIntervention(decision);
-    // V4: Visual edge pulse for ALL interventions (including silent ones)
-    pulseEdge();
-  });
-}
-
-// ==================== SESSION UI UPDATES ====================
-function updateSessionUI(data) {
-  const { energy, immersion, trajectory } = data.state;
-
-  // V4: Ambient background color shift — energy drives hue
-  // Low energy = deep blue (220), high = warm red (0)
-  const hue = Math.round(220 - energy.value * 220);
-  document.documentElement.style.setProperty('--energy-hue', hue);
-  const glowIntensity = 0.04 + energy.value * 0.08;
-  $('glow').style.background = `radial-gradient(circle, hsla(${hue}, 80%, 50%, ${glowIntensity}) 0%, transparent 70%)`;
-
-  // Calibration progress
-  if (data.calibration && !data.calibration.calibrated) {
-    $('cal-fill').style.width = `${Math.round(data.calibration.progress * 100)}%`;
-  }
-
-  // V4: Arc timeline progress
-  if (data.arc && data.arc.sessionMinutes !== undefined) {
-    const arcDuration = engine?.musicBrain?.currentArc;
-    if (arcDuration && arcDuration.length > 0) {
-      const maxT = arcDuration[arcDuration.length - 1].t;
-      const pct = maxT > 0 ? Math.min(100, (data.arc.sessionMinutes / maxT) * 100) : 0;
-      $('arc-progress').style.width = `${pct}%`;
-      $('arc-label').textContent = `${Math.round(data.arc.sessionMinutes)}m / ${Math.round(maxT)}m`;
-    }
-  }
-
-  // Status text updates based on state
-  if (data.calibration?.calibrated) {
-    const stateText = trajectory.direction === 'improving' ? 'Rising' :
-      trajectory.direction === 'declining' ? 'Settling' :
-      immersion.level === 'absorbed' ? 'Deep' :
-      immersion.level === 'engaged' ? 'Locked in' : 'Listening';
-    $('sess-status').textContent = stateText;
-  }
-}
-
-function pulseEdge() {
-  const el = $('edge-pulse');
-  el.classList.add('active');
-  setTimeout(() => el.classList.remove('active'), 2000);
-}
-
-// ==================== ARC VISUALIZATION ====================
-function drawArc(arcPoints) {
-  const canvas = $('arc-canvas');
-  if (!canvas || !arcPoints || arcPoints.length < 2) return;
-  const container = $('arc-timeline');
-  canvas.width = container.offsetWidth;
-  canvas.height = container.offsetHeight;
-  const ctx = canvas.getContext('2d');
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-  const maxT = arcPoints[arcPoints.length - 1].t;
-  const maxE = Math.max(...arcPoints.map(p => p.energy));
-  const minE = Math.min(...arcPoints.map(p => p.energy));
-  const range = maxE - minE || 1;
-
-  ctx.beginPath();
-  ctx.strokeStyle = 'rgba(255,59,92,0.15)';
-  ctx.lineWidth = 1.5;
-  arcPoints.forEach((p, i) => {
-    const x = (p.t / maxT) * canvas.width;
-    const y = canvas.height - ((p.energy - minE) / range) * (canvas.height - 4) - 2;
-    if (i === 0) ctx.moveTo(x, y);
-    else ctx.lineTo(x, y);
-  });
-  ctx.stroke();
-}
-
-// ==================== NUDGE + HAPTIC + FEEDBACK ====================
-function showNudge(text, decision) {
-  if (!text) return;
-  lastNudgeTimestamp = decision?.timestamp || Date.now();
-  const el = $('nudge-text');
-  el.textContent = text;
-  el.classList.add('visible');
-  $('glow').style.background = `radial-gradient(circle, rgba(255,59,92,0.2) 0%, transparent 70%)`;
-
-  // Show feedback buttons after nudge text
-  setTimeout(() => {
-    $('nudge-feedback').classList.add('visible');
-  }, 1500);
-
-  setTimeout(() => {
-    el.classList.remove('visible');
-    $('glow').style.background = `radial-gradient(circle, hsla(var(--energy-hue), 80%, 50%, 0.06) 0%, transparent 70%)`;
-    // Auto-dismiss feedback after 5s total
-    setTimeout(() => { $('nudge-feedback').classList.remove('visible'); }, 2000);
-  }, 4000);
-}
-
-function nudgeFeedback(response) {
-  if (lastNudgeTimestamp && logger) {
-    logger.logNudgeFeedback(lastNudgeTimestamp, response);
-  }
-  $('nudge-feedback').classList.remove('visible');
-  // Brief visual confirmation
-  const btn = response === 'positive' ? document.querySelector('.nf-btn.up') : document.querySelector('.nf-btn.down');
-  if (btn) { btn.style.transform = 'scale(1.2)'; setTimeout(() => { btn.style.transform = ''; }, 300); }
-}
-
-function triggerHaptic(pattern) {
-  if (navigator.vibrate) {
-    switch (pattern) {
-      case 'light': navigator.vibrate(50); break;
-      case 'medium': navigator.vibrate(100); break;
-      case 'heavy': navigator.vibrate([100, 50, 100]); break;
-      case 'double': navigator.vibrate([50, 30, 50]); break;
-    }
-  }
-  // V4: Visual fallback if no vibrate API (iOS Safari)
-  if (!navigator.vibrate) pulseEdge();
-}
-
-// ==================== MOMENT CAPTURE (with 30s debounce) ====================
-let lastMomentTime = 0;
-const MOMENT_DEBOUNCE_MS = 30000; // 30s between moment presses
-
-function logMoment() {
-  if (!engine || !sessionActive) return;
-  const now = Date.now();
-  if (now - lastMomentTime < MOMENT_DEBOUNCE_MS) {
-    // Debounce — too soon after last press
-    const btn = $('moment-btn');
-    const remaining = Math.ceil((MOMENT_DEBOUNCE_MS - (now - lastMomentTime)) / 1000);
-    btn.textContent = `Wait ${remaining}s`;
-    setTimeout(() => { if (!btn.classList.contains('tapped')) btn.textContent = 'I feel something'; }, 1500);
-    return;
-  }
-  lastMomentTime = now;
-
-  const state = engine.stateEstimator.state;
-  const track = currentQueue[currentIndex] || null;
-  if (logger) logger.logMoment(state, track);
-
-  // V4: Wire moment to engine as state signal
-  engine.onMomentPress();
-
-  // Visual feedback
-  const btn = $('moment-btn');
-  btn.classList.add('tapped');
-  btn.textContent = 'Captured';
-  setTimeout(() => { btn.classList.remove('tapped'); btn.textContent = 'I feel something'; }, 2000);
-}
-
-// ==================== MUSIC COMMANDS ====================
-function handleMusicCommand(cmd) {
-  if (!ytPlayer || !playerReady) return;
-  switch (cmd.command) {
-    case 'skip':
-      if (logger) logger.logMusic('skip', currentQueue[currentIndex], { reason: 'engine_skip' });
-      if (currentIndex < currentQueue.length - 1) {
-        currentIndex++;
-        playTrack(currentQueue[currentIndex]);
-        renderQueue();
-      } else loadMoreMusic();
-      break;
-    case 'volume':
-      const vol = Math.max(0, Math.min(100, ytPlayer.getVolume() + (cmd.delta || 0)));
-      ytPlayer.setVolume(vol);
-      break;
-    case 'search_and_play':
-      if (cmd.query) {
-        // V5: Repo track returned directly — no search needed
-        if (cmd.query.repoTrack) {
-          const t = cmd.query.repoTrack;
-          t._seekTime = cmd.query.seekTime || 0;
-          if (logger) logger.logMusic('search', t, { query: cmd.query.reason, reason: 'repo_engine' });
-          currentQueue.splice(currentIndex + 1, 0, t);
-          currentIndex++;
-          playTrack(currentQueue[currentIndex]);
-          renderQueue();
-        } else if (ytSearch) {
-          ytSearch.search(cmd.query.query, 5).then(tracks => {
-            tracks = engine.filterYouTubeResults(tracks);
-            tracks = engine.musicBrain.sortByArtistVariety(tracks);
-            if (tracks.length > 0) {
-              if (logger) logger.logMusic('search', null, { query: cmd.query.query, reason: 'engine_search' });
-              currentQueue.splice(currentIndex + 1, 0, ...tracks);
-              currentIndex++;
-              playTrack(currentQueue[currentIndex]);
-              renderQueue();
-            }
-          });
-        }
+    // Translate intent into music parameters (arc is fallback)
+    let targetEnergy = arcEnergy;
+    let intentReason = 'arc';
+    if (meCurrentIntent && meCurrentIntent.type !== 'arc_fallback') {
+      const musicParams = meIntentGenerator.translateForMusic(meCurrentIntent, arcEnergy);
+      if (musicParams) {
+        targetEnergy = musicParams.targetEnergy;
+        intentReason = musicParams.reason;
       }
-      break;
-    case 'queue_next':
-      if (cmd.query) {
-        // V5: Repo track
-        if (cmd.query.repoTrack) {
-          const t = cmd.query.repoTrack;
-          t._seekTime = cmd.query.seekTime || 0;
-          currentQueue.splice(currentIndex + 1, 0, t);
-          renderQueue();
-        } else if (ytSearch) {
-          ytSearch.search(cmd.query.query, 8).then(tracks => {
-            tracks = engine.filterYouTubeResults(tracks);
-            tracks = engine.musicBrain.sortByArtistVariety(tracks);
-            if (tracks.length > 0) {
-              currentQueue.splice(currentIndex + 1, 0, ...shuffle(tracks));
-              renderQueue();
-            }
-          });
-        }
+    }
+
+    let track = null;
+    let reason = {};
+
+    // Session ending — pick outro track
+    if (remaining < 4) {
+      const outros = this.repo.getOutroTracks(this.playedIds);
+      if (outros.length > 0) {
+        track = outros[0];
+        reason = { type: 'outro', phase, targetEnergy: Math.round(targetEnergy * 10) / 10 };
       }
-      break;
-    case 'extend':
-      break; // let track play naturally
-  }
-}
-
-// ==================== SESSION LIFECYCLE ====================
-async function beginSession() {
-  const context = {
-    location: $('f-location').value.trim(),
-    situation: $('f-situation').value.trim(),
-    before: chipSelections.before || [],
-    intent: chipSelections.intent || [],
-    vibe: chipSelections.vibe || [],
-    energy_level: $('f-energy').value,
-    openness: (chipSelections.openness || ['medium'])[0],
-    sleep_in_hours: $('f-session-length').value,
-    time_context: getTimeContext(),
-    submitted_at: new Date().toISOString()
-  };
-
-  try { localStorage.setItem('me_last_intake', JSON.stringify(context)); } catch(e) {}
-
-  // Switch views
-  $('v-intake').classList.remove('active');
-  $('v-session').classList.add('active');
-  $('debug-toggle').style.display = 'block';
-
-  (context.intent || []).forEach(i => {
-    const tag = document.createElement('span');
-    tag.className = 'sess-tag';
-    tag.textContent = i;
-    $('sess-tags').appendChild(tag);
-  });
-
-  // Initialize engine
-  engine = new MEEngine();
-  ytSearch = new YouTubeSearch(YT_API_KEY);
-  logger = new AnalyticsLogger({ githubRepo: GITHUB_REPO, githubToken: getGitHubToken() });
-
-  setupEngineHandlers();
-  const { queries, arc } = engine.startSession(context);
-  logger.startSession(engine.sessionId, context);
-  sessionActive = true;
-
-  // Draw arc visualization
-  if (arc) drawArc(arc);
-
-  // Session timer
-  const startTime = Date.now();
-  sessionTimerId = setInterval(() => {
-    const elapsed = Date.now() - startTime;
-    const min = Math.floor(elapsed / 60000);
-    const sec = Math.floor((elapsed % 60000) / 1000);
-    $('sess-timer').textContent = `${String(min).padStart(2, '0')}:${String(sec).padStart(2, '0')}`;
-  }, 1000);
-
-  await startSensors();
-  startFaceDetection();
-  await loadInitialMusic(queries);
-}
-
-async function endSession() {
-  if (!sessionActive) return;
-  sessionActive = false;
-
-  let sessionData = null;
-  if (engine) {
-    const summary = engine.stopSession();
-    if (logger) sessionData = await logger.endSession(summary);
-  }
-
-  if (sessionTimerId) { clearInterval(sessionTimerId); sessionTimerId = null; }
-  if (sensorSendId) { clearInterval(sensorSendId); sensorSendId = null; }
-  if (faceDetectId) { clearTimeout(faceDetectId); faceDetectId = null; }
-
-  const video = $('face-video');
-  if (video.srcObject) { video.srcObject.getTracks().forEach(t => t.stop()); video.srcObject = null; }
-  if (ytPlayer && playerReady) { try { cfm.destroy(); } catch(e) {} }
-
-  // V4: Show recap screen
-  showRecap(sessionData);
-}
-
-function showRecap(data) {
-  $('v-session').classList.remove('active');
-  $('v-recap').classList.add('active');
-  $('debug-toggle').style.display = 'none';
-
-  if (data && data.summary) {
-    const s = data.summary;
-    $('recap-duration').textContent = s.duration_min || '--';
-    $('recap-moments-count').textContent = s.moments || 0;
-
-    let statsHtml = '';
-    statsHtml += `<div class="recap-row"><span class="recap-label">Tracks played</span><span class="recap-value">${s.tracks_played}</span></div>`;
-    statsHtml += `<div class="recap-row"><span class="recap-label">Interventions</span><span class="recap-value">${s.interventions_total}</span></div>`;
-    if (s.interventions_total > 0) {
-      statsHtml += `<div class="recap-row"><span class="recap-label">Landed</span><span class="recap-value">${s.interventions_positive} / ${s.interventions_total}</span></div>`;
     }
-    if (s.avg_energy !== null) {
-      statsHtml += `<div class="recap-row"><span class="recap-label">Avg energy</span><span class="recap-value">${s.avg_energy}</span></div>`;
-      statsHtml += `<div class="recap-row"><span class="recap-label">Avg immersion</span><span class="recap-value">${s.avg_immersion}</span></div>`;
-    }
-    statsHtml += `<div class="recap-row"><span class="recap-label">Face readings</span><span class="recap-value">${s.face_readings}</span></div>`;
-    statsHtml += `<div class="recap-row"><span class="recap-label">Your feedback</span><span class="recap-value">${s.user_feedback_count} ratings</span></div>`;
-    $('recap-stats').innerHTML = statsHtml;
-  }
-}
 
-function closeRecap() {
-  $('v-recap').classList.remove('active');
-  $('v-intake').classList.add('active');
-  // Reset session state
-  $('sess-tags').innerHTML = '';
-  $('sess-timer').textContent = '00:00';
-  $('cal-section').style.display = '';
-  $('cal-fill').style.width = '0%';
-  $('arc-progress').style.width = '0%';
-  $('trackTitle').textContent = 'Starting...';
-  $('trackArtist').textContent = '';
-  $('sess-status').textContent = 'Warming up...';
-  $('queue-list').innerHTML = '';
-  currentQueue = [];
-  currentIndex = 0;
-}
+    // Intent-driven (or arc-fallback) selection
+    if (!track) {
+      const bpmRange = fromTrack && fromTrack.bpm > 0
+        ? [fromTrack.bpm - 8, fromTrack.bpm + 8]
+        : null;
 
-function getTimeContext() {
-  const h = new Date().getHours();
-  if (h >= 22 || h < 4) return 'late_night';
-  if (h < 8) return 'early_morning';
-  if (h < 12) return 'morning';
-  if (h < 17) return 'afternoon';
-  return 'evening';
-}
+      // If intent says high novelty, widen genre constraints
+      const intentNovelty = meCurrentIntent?.dimensions?.novelty || 'moderate';
+      const genreFilter = (intentNovelty === 'high' || intentNovelty === 'none')
+        ? null
+        : (fromTrack ? fromTrack.genre : null);
 
-// ==================== DEBUG PANEL ====================
-function toggleDebug() {
-  debugOpen = !debugOpen;
-  $('debug-panel').className = debugOpen ? 'open' : '';
-  $('debug-toggle').textContent = debugOpen ? 'CLOSE' : 'DBG';
-  if (debugOpen) renderDecisions();
-}
+      // If intent says low novelty, tighten BPM range
+      const adjustedBpm = (intentNovelty === 'low' && bpmRange)
+        ? [bpmRange[0] + 2, bpmRange[1] - 2]  // Tighter BPM = more similar feel
+        : bpmRange;
 
-function updateDebugState(data) {
-  if (!debugOpen) return;
-  const { state, raw, calibration, arc, cooldown } = data;
-  let html = '';
-  html += `<div class="dbg-row"><span class="dbg-label">Energy</span><span class="dbg-val">${state.energy.level} (${state.energy.value}) [${state.energy.confidence}]</span></div>`;
-  html += `<div class="dbg-row"><span class="dbg-label">Immersion</span><span class="dbg-val">${state.immersion.level} (${state.immersion.value}) [${state.immersion.confidence}]</span></div>`;
-  html += `<div class="dbg-row"><span class="dbg-label">Trajectory</span><span class="dbg-val">${state.trajectory.direction} (${state.trajectory.value})</span></div>`;
-  html += `<div class="dbg-row"><span class="dbg-label">Calibration</span><span class="dbg-val ${calibration.calibrated ? 'accent' : ''}">${calibration.calibrated ? 'DONE' : Math.round(calibration.progress * 100) + '%'}</span></div>`;
-  html += `<div class="dbg-row"><span class="dbg-label">Arc Target</span><span class="dbg-val">${arc.target} @ ${arc.sessionMinutes}m</span></div>`;
-  html += `<div class="dbg-row"><span class="dbg-label">Cooldown</span><span class="dbg-val">${cooldown.remaining}s (${cooldown.failures} fails)</span></div>`;
-  $('dbg-state').innerHTML = html;
-
-  // Analytics counts
-  if (logger) {
-    let aHtml = '';
-    aHtml += `<div class="dbg-row"><span class="dbg-label">Ticks</span><span class="dbg-val">${logger.data.timeline.length}</span></div>`;
-    aHtml += `<div class="dbg-row"><span class="dbg-label">Interventions</span><span class="dbg-val">${logger.data.interventions.length}</span></div>`;
-    aHtml += `<div class="dbg-row"><span class="dbg-label">Music events</span><span class="dbg-val">${logger.data.music.length}</span></div>`;
-    aHtml += `<div class="dbg-row"><span class="dbg-label">Face reads</span><span class="dbg-val">${logger.data.face.length}</span></div>`;
-    aHtml += `<div class="dbg-row"><span class="dbg-label">Sensor avgs</span><span class="dbg-val">${logger.data.sensors.length}</span></div>`;
-    aHtml += `<div class="dbg-row"><span class="dbg-label">Moments</span><span class="dbg-val accent">${logger.data.moments.length}</span></div>`;
-    $('dbg-analytics').innerHTML = aHtml;
-  }
-
-  const r = v => Math.round(v * 10) / 10;
-  let sHtml = '';
-  sHtml += `<div class="dbg-row"><span class="dbg-label">Accel</span><span class="dbg-val">${r(motionData.ax)}, ${r(motionData.ay)}, ${r(motionData.az)}</span></div>`;
-  sHtml += `<div class="dbg-row"><span class="dbg-label">Gyro</span><span class="dbg-val">${r(motionData.gx)}, ${r(motionData.gy)}, ${r(motionData.gz)}</span></div>`;
-  sHtml += `<div class="dbg-row"><span class="dbg-label">Face</span><span class="dbg-val">${raw.eyes} / ${raw.headPose} / ${raw.nod}</span></div>`;
-  sHtml += `<div class="dbg-row"><span class="dbg-label">Readings</span><span class="dbg-val">F:${raw.faceReadings} S:${raw.sensorReadings}</span></div>`;
-  $('dbg-sensors').innerHTML = sHtml;
-}
-
-const debugLogEntries = [];
-function addDebugLog(entry) {
-  debugLogEntries.push(entry);
-  if (debugLogEntries.length > 50) debugLogEntries.shift();
-  if (!debugOpen) return;
-  $('dbg-log').innerHTML = debugLogEntries.slice(-20).reverse()
-    .map(e => `<div class="dbg-log-entry">[${e.type}] ${e.message || JSON.stringify(e.state || {})}</div>`).join('');
-}
-
-const musicDecisions = [];
-function logMusicDecision(track, reason, intentType, stateSnapshot) {
-  const entry = {
-    time: new Date().toLocaleTimeString(),
-    track: track ? `${track.title || track.id} — ${track.artist || '?'}` : '?',
-    why: reason || 'unknown',
-    intent: intentType || '?',
-    energy: stateSnapshot?.energy?.level || '?',
-    immersion: stateSnapshot?.immersion?.level || '?',
-    trajectory: stateSnapshot?.trajectory?.direction || '?'
-  };
-  musicDecisions.push(entry);
-  if (musicDecisions.length > 30) musicDecisions.shift();
-  if (!debugOpen) return;
-  renderDecisions();
-}
-function renderDecisions() {
-  const el = $('dbg-decisions');
-  if (!el) return;
-  el.innerHTML = musicDecisions.slice(-10).reverse().map(d =>
-    `<div class="dbg-log-entry"><b>${d.time}</b> ${d.track}<br>` +
-    `<span style="color:#0ff">WHY:</span> ${d.why}<br>` +
-    `<span style="color:#0f0">INTENT:</span> ${d.intent} | E:${d.energy} I:${d.immersion} T:${d.trajectory}</div>`
-  ).join('');
-}
-
-// ==================== CONTROLS ====================
-$('btnPlay').addEventListener('click', playPauseToggle);
-$('btnNext').addEventListener('click', () => {
-  if (currentQueue.length === 0) return;
-  if (logger) logger.logMusic('skip', currentQueue[currentIndex], { reason: 'user_skip' });
-  currentIndex = (currentIndex + 1) % currentQueue.length;
-  playTrack(currentQueue[currentIndex]);
-  renderQueue();
-});
-$('btnPrev').addEventListener('click', () => {
-  if (currentQueue.length === 0) return;
-  if (logger) logger.logMusic('skip', currentQueue[currentIndex], { reason: 'user_prev' });
-  currentIndex = currentIndex > 0 ? currentIndex - 1 : currentQueue.length - 1;
-  playTrack(currentQueue[currentIndex]);
-  renderQueue();
-});
-
-// ==================== LOAD SAVED INTAKE ====================
-function loadSavedIntake() {
-  try {
-    const saved = JSON.parse(localStorage.getItem('me_last_intake'));
-    if (!saved) return;
-    if (saved.location) $('f-location').value = saved.location;
-    if (saved.situation) $('f-situation').value = saved.situation;
-    if (saved.energy_level) { $('f-energy').value = saved.energy_level; $('energy-val').textContent = saved.energy_level; }
-    if (saved.sleep_in_hours) $('f-session-length').value = saved.sleep_in_hours;
-    ['before', 'intent', 'vibe'].forEach(field => {
-      const vals = saved[field] || [];
-      if (!vals.length) return;
-      chipSelections[field] = vals;
-      const group = document.querySelector(`.chips[data-field="${field}"]`);
-      if (!group) return;
-      group.querySelectorAll('.chip').forEach(chip => {
-        if (vals.includes(chip.dataset.v)) chip.classList.add('active');
+      const candidates = this.repo.query({
+        targetEnergy,
+        bpmRange: adjustedBpm,
+        camelotKey: fromTrack ? fromTrack.camelot : null,
+        currentGenre: genreFilter,
+        excludeIds: this.playedIds,
+        excludeArtists: this.recentArtists,
+        maxResults: 5
       });
-    });
-    if (saved.openness) {
-      chipSelections.openness = [saved.openness];
-      const group = document.querySelector('.chips[data-field="openness"]');
-      if (group) {
-        group.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
-        const target = group.querySelector(`.chip[data-v="${saved.openness}"]`);
-        if (target) target.classList.add('active');
+
+      if (candidates.length > 0) {
+        track = candidates[0];
+        reason = { type: 'intent_match', phase, targetEnergy: Math.round(targetEnergy * 10) / 10,
+                   intent: meCurrentIntent?.type || 'arc', intentReason };
+      } else {
+        // Fallback: widen constraints
+        const fallback = this.repo.query({
+          targetEnergy,
+          excludeIds: this.playedIds,
+          maxResults: 5
+        });
+        if (fallback.length > 0) {
+          track = fallback[0];
+          reason = { type: 'fallback_wide', phase, targetEnergy: Math.round(targetEnergy * 10) / 10, intent: meCurrentIntent?.type || 'arc' };
+        } else if (this.repo.tracks.length > 0) {
+          // Last resort: reset exclusions
+          this.playedIds = [];
+          this.recentArtists = [];
+          const reset = this.repo.query({ targetEnergy, maxResults: 5 });
+          track = reset[0] || this.repo.tracks[0];
+          reason = { type: 'reset', phase };
+        }
       }
     }
-    checkReady();
-  } catch (e) {}
+
+    if (!track) { console.error('[SESSION] No track available'); return; }
+
+    // Get section-aware seek time
+    const seekTime = this.repo.getSectionSeek(track.id, targetEnergy);
+
+    // Log the transition
+    this.log.log(fromTrack, track, reason);
+    logMusicDecision(track, reason, meCurrentIntent);
+
+    // Track bookkeeping
+    this.playedIds.push(track.id);
+    this.recentArtists.push((track.artist || '').toLowerCase());
+    if (this.recentArtists.length > 4) this.recentArtists.shift();
+    this.tracksPlayed++;
+
+    // Play or crossfade
+    if (!fromTrack) {
+      cfm.play(track, seekTime);
+    } else {
+      cfm.crossfadeTo(track, seekTime);
+    }
+
+    const intentLabel = meCurrentIntent ? `${meCurrentIntent.type}(${meCurrentIntent.confidence.toFixed(2)})` : 'arc';
+    console.log(`[ME] Playing: ${track.title} by ${track.artist} | seek:${Math.round(seekTime)}s | E:${track.energy10?.toFixed(1)} | target:${targetEnergy.toFixed(1)} (arc:${arcEnergy.toFixed(1)}) | intent:${intentLabel} | phase:${phase}`);
+  },
+
+  onTrackPlaying() {
+    // Update track reveal data (hidden until tapped)
+    const t = cfm.currentTrack;
+    if (t) {
+      $('tr-title').textContent = t.title || '';
+      $('tr-artist').textContent = t.artist || '';
+      const phase = this.arc.getPhase(this._getSessionMinutes());
+      $('tr-meta').textContent = `${t.camelot || ''} · ${Math.round(t.bpm || 0)} BPM · ${phase}`;
+    }
+  },
+
+  onTrackEnded() {
+    if (!sessionActive) return;
+    this._selectAndPlay(cfm.currentTrack);
+  },
+
+  onReadyForNext() {
+    if (!sessionActive) return;
+    const from = cfm.currentTrack;
+    this._selectAndPlay(from);
+  },
+
+  end() {
+    sessionActive = false;
+    if (this.timerInterval) { clearInterval(this.timerInterval); this.timerInterval = null; }
+    if (this.glowInterval) { clearInterval(this.glowInterval); this.glowInterval = null; }
+    if (meStateTickInterval) { clearInterval(meStateTickInterval); meStateTickInterval = null; }
+    cfm.stop();
+
+    // Log ME session summary + save user
+    const intentSummary = meIntentGenerator.toJSON();
+    console.log('[ME] Session intelligence summary:', JSON.stringify(intentSummary, null, 2));
+    if (currentUserName) {
+      meSaveUser(currentUserName, { peakEnergy: intentSummary.dynamics?.peakEnergy || 0 });
+      console.log(`[ME] Saved session for ${currentUserName}`);
+    }
+
+    const elapsed = this._getSessionMinutes();
+    const summary = this.log.getSummary();
+
+    // Show receipt
+    $('v-session').classList.remove('active');
+    $('v-receipt').classList.add('active');
+
+    const mins = Math.floor(elapsed);
+    const secs = Math.floor((elapsed - mins) * 60);
+    $('receipt-time').textContent = `${mins}:${String(secs).padStart(2,'0')}`;
+    $('receipt-line').innerHTML =
+      `${summary.tracksPlayed} tracks · ${summary.transitions} transitions · ${summary.keyClashes} key clashes`;
+
+    // Log full transition history to console
+    console.log('[SESSION] Full transition log:', JSON.stringify(this.log.entries, null, 2));
+    try { localStorage.setItem('me_eddie_last_session', JSON.stringify({
+      time: new Date().toISOString(), duration: elapsed, energy: selectedEnergy,
+      summary, transitions: this.log.entries
+    })); } catch(e) {}
+  }
+};
+
+// ==================== UI WIRING ====================
+
+function beginSession() {
+  if (!selectedEnergy) return;
+
+  $('v-entry').classList.remove('active');
+  $('v-session').classList.add('active');
+
+  // Save user name
+  const nameVal = ($('name-input') || {}).value || '';
+  currentUserName = nameVal.trim().toLowerCase() || null;
+  if (currentUserName) {
+    try { localStorage.setItem('me_last_name', nameVal.trim()); } catch(e) {}
+  }
+
+  // Show loading state
+  const timer = $('session-timer');
+  if (timer) timer.textContent = 'LOADING...';
+
+  // If YouTube API loaded but cfm never initialized (late load), init now
+  if (window.YT && window.YT.Player && !cfm.ready.A && !cfm.players.A) {
+    console.log('[EDDIE] Late YT init — calling cfm.init() now');
+    cfm.init();
+  }
+
+  // Wait for YT players to be ready
+  let attempts = 0;
+  const waitForPlayers = setInterval(() => {
+    attempts++;
+    // Retry init every 2s if still not ready
+    if (attempts % 10 === 0 && window.YT && window.YT.Player && !cfm.ready.A) {
+      console.log('[EDDIE] Retrying cfm.init()...');
+      try { cfm.init(); } catch(e) {}
+    }
+    if (cfm.ready.A && cfm.ready.B) {
+      clearInterval(waitForPlayers);
+      session.start(selectedEnergy, selectedDuration);
+    }
+  }, 200);
+
+  // Timeout after 12s — start with whatever is ready
+  setTimeout(() => {
+    clearInterval(waitForPlayers);
+    if (!sessionActive) {
+      if (cfm.ready.A || cfm.ready.B) {
+        session.start(selectedEnergy, selectedDuration);
+      } else {
+        console.error('[EDDIE] YouTube players not ready after 12s. Check: network, ad blocker, YT iframe API');
+        if (timer) timer.textContent = 'YT FAILED — check console';
+        // Start anyway for camera/state — music won't play
+        session.start(selectedEnergy, selectedDuration);
+      }
+    }
+  }, 12000);
 }
 
-// ==================== EXPORTS ====================
-window.MEStatus = () => engine ? engine.getStatus() : 'No active session';
-window.MEData = () => logger ? logger.data : 'No logger';
-window.MEExport = () => AnalyticsLogger.exportAll();
+function endSession() {
+  if (sessionActive) session.end();
+}
 
-// ==================== INIT ====================
-loadSavedIntake();
+// Tap-to-reveal track info
+let revealTimeout = null;
+document.addEventListener('click', (e) => {
+  if (!sessionActive) return;
+  if (e.target.id === 'end-btn') return;
+
+  const reveal = $('track-reveal');
+  reveal.classList.add('visible');
+  if (revealTimeout) clearTimeout(revealTimeout);
+  revealTimeout = setTimeout(() => {
+    reveal.classList.remove('visible');
+  }, 3000);
+});
+
+// YouTube API ready callback
+window.onYouTubeIframeAPIReady = function() {
+  console.log('[YT] API ready');
+  cfm.init();
+};
 </script>
 </body>
 </html>
