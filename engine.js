@@ -482,7 +482,7 @@ class StateEstimator {
     const thresholds = {
       detached:  { enterBelow: 0.17, exitAbove: 0.23 },
       observing: { enterBelow: 0.42, exitAbove: 0.48 },
-      engaged:   { enterBelow: 0.67, exitAbove: 0.73 }
+      engaged:   { enterBelow: 0.72, exitAbove: 0.80 }
     };
 
     if (now < this._immersionLevelHoldUntil) return this._currentImmersionLevel;
@@ -788,7 +788,7 @@ class InterventionEngine {
     const { energy, immersion, trajectory } = state;
 
     // === GATE: Absorption — only extend track, no interventions ===
-    if (immersion.level === 'absorbed') {
+    if (immersion.level === 'absorbed' && sessionElapsed >= 4 && immersion.confidence >= 0.6) {
       this.observationCount = 0;
       if (context.trackElapsed > 240) return this._makeDecision('hold', 'subtle', 'absorbed_extend', state);
       return null;
@@ -981,6 +981,9 @@ class IntentGenerator {
     this._responseEvents = [];      // environmental changes + state response
     this._warmupComplete = false;
     this._warmupCompletedAt = 0;
+    this._holdStartedAt = 0;
+    this.MAX_HOLD_MINUTES = 8;
+    this.HOLD_CONFIDENCE_FLOOR = 0.6;
   }
 
   generate(state, context) {
@@ -1000,12 +1003,32 @@ class IntentGenerator {
     // Low confidence in sparse regime → conservative intent
     const confidenceFloor = signalRegime === 'sparse' ? 0.3 : 0;
 
-    // === FLOW STATE: Don't touch ===
+    // === FLOW STATE: Don't touch (with safeguards) ===
     if (immersion.level === 'absorbed' && trajectory.direction !== 'declining') {
+      if (sessionElapsed < 4) {
+        this._holdStartedAt = 0;
+        return this._emit({ type: 'sustain', confidence: Math.max(confidenceFloor, immersion.confidence * 0.6),
+          reason: 'post-calibration grace — absorption not yet trustworthy',
+          dimensions: { energy: 'maintain', novelty: 'low', intensity: 0.1 } }, now);
+      }
+      if (immersion.confidence < this.HOLD_CONFIDENCE_FLOOR) {
+        this._holdStartedAt = 0;
+        return this._emit({ type: 'sustain', confidence: Math.max(confidenceFloor, immersion.confidence),
+          reason: 'absorbed but low confidence — not blocking music',
+          dimensions: { energy: 'maintain', novelty: 'low', intensity: 0.1 } }, now);
+      }
+      if (!this._holdStartedAt) this._holdStartedAt = now;
+      const holdMinutes = (now - this._holdStartedAt) / 60000;
+      if (holdMinutes > this.MAX_HOLD_MINUTES) {
+        return this._emit({ type: 'sustain', confidence: Math.max(confidenceFloor, immersion.confidence * 0.7),
+          reason: `hold expired after ${Math.round(holdMinutes)}min — releasing`,
+          dimensions: { energy: 'maintain', novelty: 'low', intensity: 0.15 } }, now);
+      }
       return this._emit({ type: 'hold', confidence: Math.max(confidenceFloor, immersion.confidence),
         reason: 'flow state — any intervention breaks it',
         dimensions: { energy: 'maintain', novelty: 'none', intensity: 0 } }, now);
     }
+    this._holdStartedAt = 0;
 
     // === DECLINING + LOW: Needs grounding ===
     if (trajectory.direction === 'declining' && energy.level === 'low') {
@@ -1242,8 +1265,8 @@ class SignalPersistenceFilter {
     }
 
     // --- Immersion persistence ---
-    // BYPASS: flow state (absorbed) and detachment bypass persistence — high-stakes, act immediately
-    const immersionBypass = rawState.immersion.level === 'absorbed' || rawState.immersion.level === 'detached';
+    // BYPASS: only detachment bypasses persistence (safety). Absorbed must persist like other levels.
+    const immersionBypass = rawState.immersion.level === 'detached';
     if (rawState.immersion.level !== this.confirmedState.immersion.level) {
       if (immersionBypass) {
         this.confirmedState.immersion = { ...rawState.immersion };
@@ -2263,6 +2286,14 @@ class MEEngine {
     if (!wasCalibrated && this.calibrator.calibrated) {
       this._emit('log', { type: 'calibration_complete', message: 'Baseline calibration complete', baseline: this.calibrator.baseline });
       this._emit('state', { type: 'calibration', status: 'complete', baseline: this.calibrator.baseline });
+      // Proactive music search on calibration complete — ensure engine drives music from the start.
+      // Without this, if intent goes to 'hold' early, no music command is ever emitted.
+      const calQuery = this.musicBrain.getNextSearchQuery(this.stateEstimator.state, sessionElapsed);
+      if (calQuery) {
+        this._emit('command', { type: 'music', command: 'queue_next', query: calQuery });
+        this._lastEngineSearchTime = now;
+        this._emit('log', { type: 'post_calibration_search', message: 'Proactive search after calibration' });
+      }
     }
 
     // V4: Pass arc target to StateEstimator for sparse-signal drift (W-4)
