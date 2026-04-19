@@ -28,24 +28,22 @@ body {
   text-transform: uppercase;
 }
 
-.energy-select { display: flex; gap: 40px; align-items: center; }
-
-.energy-dot {
-  width: 48px; height: 48px; border-radius: 50%;
-  border: 1px solid rgba(255,255,255,0.08); background: transparent;
-  cursor: pointer; transition: all 0.6s ease; position: relative;
-  -webkit-tap-highlight-color: transparent;
+.arc-select {
+  display: flex; gap: 12px; flex-wrap: wrap; justify-content: center;
+  max-width: 360px; margin: 0 auto;
 }
-.energy-dot::after {
-  content: attr(data-label); position: absolute; bottom: -24px; left: 50%;
-  transform: translateX(-50%); font-size: 10px; letter-spacing: 2px;
-  color: rgba(255,255,255,0.1); white-space: nowrap;
+.arc-pill {
+  padding: 8px 18px; border-radius: 20px;
+  border: 1px solid rgba(255,255,255,0.06); background: transparent;
+  color: rgba(255,255,255,0.15); font-size: 10px; letter-spacing: 2px;
+  cursor: pointer; transition: all 0.4s ease; text-transform: uppercase;
+  -webkit-tap-highlight-color: transparent; font-family: inherit;
 }
-.energy-dot:hover { border-color: rgba(255,255,255,0.15); }
-.energy-dot.selected {
-  border-color: rgba(255,255,255,0.25);
-  background: radial-gradient(circle, rgba(255,255,255,0.06) 0%, transparent 70%);
-  box-shadow: 0 0 30px rgba(255,255,255,0.03);
+.arc-pill:hover { border-color: rgba(255,255,255,0.15); color: rgba(255,255,255,0.25); }
+.arc-pill.selected {
+  border-color: rgba(255,255,255,0.25); color: rgba(255,255,255,0.4);
+  background: radial-gradient(circle, rgba(255,255,255,0.04) 0%, transparent 70%);
+  box-shadow: 0 0 30px rgba(255,255,255,0.02);
 }
 
 .duration-toggle {
@@ -191,15 +189,14 @@ body {
     color:rgba(255,255,255,0.5);font-size:14px;letter-spacing:3px;text-align:center;
     padding:8px 16px;width:200px;outline:none;font-family:inherit;margin-bottom:32px"
     oninput="onNameInput(this)">
-  <div style="font-size:10px;letter-spacing:3px;color:rgba(255,255,255,0.12);margin-bottom:16px">WHERE ARE YOU RIGHT NOW</div>
-  <div class="energy-select">
-    <div class="energy-dot" data-energy="low" data-label="LOW" onclick="selectEnergy(this)"></div>
-    <div class="energy-dot" data-energy="mid" data-label="MID" onclick="selectEnergy(this)"></div>
-    <div class="energy-dot" data-energy="high" data-label="HIGH" onclick="selectEnergy(this)"></div>
-  </div>
-  <div class="duration-toggle">
+  <div style="font-size:10px;letter-spacing:3px;color:rgba(255,255,255,0.12);margin-bottom:16px">CHOOSE YOUR ARC</div>
+  <div class="arc-select" id="arc-select"></div>
+  <div style="font-size:9px;color:rgba(255,255,255,0.08);margin-top:4px;letter-spacing:1px" id="arc-desc"></div>
+  <div class="duration-toggle" id="dur-toggle">
     <span class="dur-opt" data-dur="15" onclick="selectDuration(this)">15 MIN</span>
     <span class="dur-opt selected" data-dur="30" onclick="selectDuration(this)">30 MIN</span>
+    <span class="dur-opt" data-dur="45" onclick="selectDuration(this)">45 MIN</span>
+    <span class="dur-opt" data-dur="60" onclick="selectDuration(this)">60 MIN</span>
   </div>
   <button id="begin-btn" onclick="beginSession()">BEGIN</button>
 </div>
@@ -240,8 +237,10 @@ body {
     <div id="dbg-filter" class="dim">—</div>
     <div class="label">DYNAMICS</div>
     <div id="dbg-dynamics" class="dim">—</div>
-    <div class="label" style="color:#ff5555;margin-top:12px">MUSIC DECISIONS</div>
-    <div id="dbg-decisions" class="dim" style="max-height:200px;overflow-y:auto;font-size:9px">—</div>
+    <div class="label">NOW PLAYING</div>
+    <div id="dbg-track" class="dim">—</div>
+    <div class="label">LAST DECISION</div>
+    <div id="dbg-decision" class="dim">—</div>
   </div>
 </div>
 
@@ -258,6 +257,7 @@ body {
 <script src="https://www.youtube.com/iframe_api"></script>
 <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh@0.4.1633559619/face_mesh.js" crossorigin="anonymous"></script>
 <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils@0.3.1632432234/camera_utils.js" crossorigin="anonymous"></script>
+<script src="arc_presets.js"></script>
 <script src="track_data.js"></script>
 <script src="engine.js"></script>
 
@@ -269,28 +269,8 @@ body {
 
 const $ = id => document.getElementById(id);
 
-// ==================== MUSIC DECISIONS LOG ====================
-const _musicDecisions = [];
-function logMusicDecision(track, reason, intent) {
-  const t = new Date().toLocaleTimeString().slice(0,5);
-  const name = track ? `${track.title || track.id} — ${track.artist || '?'}` : '?';
-  const why = typeof reason === 'object' ? `${reason.type} E:${reason.targetEnergy||'?'}` : String(reason);
-  const iType = intent?.type || '?';
-  const iReason = intent?.reason || '';
-  _musicDecisions.push({ t, name, why, iType, iReason });
-  if (_musicDecisions.length > 30) _musicDecisions.shift();
-  const el = $('dbg-decisions');
-  if (!el) return;
-  el.innerHTML = _musicDecisions.slice().reverse().map(d =>
-    `<div style="margin-bottom:6px;border-bottom:1px solid rgba(255,255,255,0.05);padding-bottom:4px">` +
-    `<span style="color:rgba(255,255,255,0.3)">${d.t}</span> <b>${d.name}</b><br>` +
-    `<span style="color:#0ff">WHY:</span> ${d.why}<br>` +
-    `<span style="color:#8be9fd">INTENT:</span> ${d.iType} — ${d.iReason}</div>`
-  ).join('');
-}
-
 // ==================== STATE ====================
-let selectedEnergy = null;   // 'low' | 'mid' | 'high'
+let selectedPreset = null;   // arc preset id from ARC_PRESETS
 let selectedDuration = 30;   // minutes
 let sessionActive = false;
 let sessionStartTime = null;
@@ -505,10 +485,37 @@ document.addEventListener('keydown', (e) => {
 });
 
 // ==================== ENTRY VIEW ====================
-function selectEnergy(el) {
-  document.querySelectorAll('.energy-dot').forEach(d => d.classList.remove('selected'));
-  el.classList.add('selected');
-  selectedEnergy = el.dataset.energy;
+function buildArcSelector() {
+  const container = $('arc-select');
+  if (!container || !window.ARC_PRESETS) return;
+  Object.keys(window.ARC_PRESETS).forEach(id => {
+    const preset = window.ARC_PRESETS[id];
+    const pill = document.createElement('button');
+    pill.className = 'arc-pill';
+    pill.dataset.arc = id;
+    pill.textContent = preset.name;
+    pill.onclick = () => selectArc(id);
+    container.appendChild(pill);
+  });
+}
+
+function selectArc(id) {
+  document.querySelectorAll('.arc-pill').forEach(p => p.classList.remove('selected'));
+  const pill = document.querySelector(`.arc-pill[data-arc="${id}"]`);
+  if (pill) pill.classList.add('selected');
+  selectedPreset = id;
+  const preset = window.ARC_PRESETS[id];
+  if (preset) {
+    $('arc-desc').textContent = preset.description;
+    // Update duration to preset default if user hasn't manually changed it
+    const defDur = preset.defaultDuration;
+    const durOpts = document.querySelectorAll('.dur-opt');
+    const hasDur = Array.from(durOpts).some(d => parseInt(d.dataset.dur) === defDur);
+    if (hasDur) {
+      durOpts.forEach(d => d.classList.toggle('selected', parseInt(d.dataset.dur) === defDur));
+      selectedDuration = defDur;
+    }
+  }
   $('begin-btn').classList.add('ready');
 }
 
@@ -518,49 +525,24 @@ function selectDuration(el) {
   selectedDuration = parseInt(el.dataset.dur);
 }
 
+// Build arc selector on load
+setTimeout(buildArcSelector, 0);
+
 // ==================== ARC ENGINE ====================
-// 7-phase energy curve from the Feel Specification
-// Returns target energy (1-10 scale) at any point in the session
+// Configurable arc from presets — arc is the product primitive.
+// Same track library, different arcs = different experiences.
 
 class ArcEngine {
-  constructor(startEnergy, durationMin) {
+  constructor(presetId, durationMin) {
+    const presets = window.ARC_PRESETS || {};
+    const preset = presets[presetId] || presets.peak_night || Object.values(presets)[0];
+    this.presetId = presetId;
+    this.presetName = preset ? preset.name : 'Unknown';
     this.duration = durationMin;
-    // Map entry selection to energy band
-    const bands = {
-      low:  { start: 2.5, peak: 6,   end: 1.5 },
-      mid:  { start: 4,   peak: 7.5, end: 3 },
-      high: { start: 6,   peak: 9,   end: 4.5 }
-    };
-    const b = bands[startEnergy] || bands.mid;
-
-    // 7 phases as proportions of session duration
-    // Phase 1: Meet You (0-10%)
-    // Phase 2: Settle In (10-27%)
-    // Phase 3: First Nudge (27-50%)
-    // Phase 4: Ride the Wave (50-73%)
-    // Phase 5: Peak moment (embedded — highest point in phase 4)
-    // Phase 6: Descent (73-90%)
-    // Phase 7: Resolution (90-100%)
-    this.points = [
-      { t: 0,    e: b.start },           // session opens
-      { t: 0.10, e: b.start },           // meet you — hold
-      { t: 0.27, e: b.start + 0.5 },     // settle — barely move
-      { t: 0.40, e: b.start + (b.peak - b.start) * 0.5 }, // nudge — halfway up
-      { t: 0.50, e: b.peak - 1 },        // building
-      { t: 0.62, e: b.peak },            // peak zone
-      { t: 0.73, e: b.peak - 0.5 },      // still riding
-      { t: 0.82, e: b.start + (b.peak - b.start) * 0.4 }, // descent
-      { t: 0.90, e: b.end + 1 },         // winding down
-      { t: 1.00, e: b.end }              // resolution
-    ];
-
-    this.phaseName = [
-      'meet_you', 'meet_you', 'settle_in', 'first_nudge', 'building',
-      'peak', 'riding', 'descent', 'winding_down', 'resolution'
-    ];
+    this.phases = preset ? preset.phases : [];
+    this.points = preset ? preset.points.map(p => ({ t: p.t, e: p.e })) : [{ t: 0, e: 5 }, { t: 1, e: 5 }];
   }
 
-  // Get target energy at a given session minute
   getTargetEnergy(minutesElapsed) {
     const p = Math.min(1, minutesElapsed / this.duration);
     for (let i = 1; i < this.points.length; i++) {
@@ -573,13 +555,20 @@ class ArcEngine {
     return this.points[this.points.length - 1].e;
   }
 
-  // Get current phase name
   getPhase(minutesElapsed) {
     const p = Math.min(1, minutesElapsed / this.duration);
-    for (let i = this.points.length - 1; i >= 0; i--) {
-      if (p >= this.points[i].t) return this.phaseName[i];
+    for (let i = this.phases.length - 1; i >= 0; i--) {
+      if (p >= this.phases[i].start) return this.phases[i].name;
     }
-    return this.phaseName[0];
+    return this.phases.length > 0 ? this.phases[0].name : 'default';
+  }
+
+  getPhaseLabel(minutesElapsed) {
+    const p = Math.min(1, minutesElapsed / this.duration);
+    for (let i = this.phases.length - 1; i >= 0; i--) {
+      if (p >= this.phases[i].start) return this.phases[i].label;
+    }
+    return '';
   }
 }
 
@@ -633,24 +622,28 @@ const cfm = {
   monitorTimer: null,
   currentTrack: null,     // repo track object for active player
   trackStartTime: null,   // when current track started playing
+  _errorCount: 0,         // S131: consecutive error counter
+  _maxConsecutiveErrors: 3, // S131: stop trying after N failures in a row
 
   init() {
     this.players.A = new YT.Player('ytPlayerA', {
-      host: 'https://www.youtube-nocookie.com',
+      host: 'https://www.youtube.com',
       height: '180', width: '320',
       playerVars: { autoplay: 0, controls: 0, modestbranding: 1, rel: 0, playsinline: 1, iv_load_policy: 3, fs: 0, disablekb: 1 },
       events: {
         onReady: () => { this.ready.A = true; console.log('[CFM] Player A ready'); if (this._pendingTrack) this.play(this._pendingTrack.track, this._pendingTrack.seekTime); },
-        onStateChange: (e) => this._onState('A', e)
+        onStateChange: (e) => this._onState('A', e),
+        onError: (e) => this.onError('A', e)
       }
     });
     this.players.B = new YT.Player('ytPlayerB', {
-      host: 'https://www.youtube-nocookie.com',
+      host: 'https://www.youtube.com',
       height: '180', width: '320',
       playerVars: { autoplay: 0, controls: 0, modestbranding: 1, rel: 0, playsinline: 1, iv_load_policy: 3, fs: 0, disablekb: 1 },
       events: {
         onReady: () => { this.ready.B = true; console.log('[CFM] Player B ready'); },
-        onStateChange: (e) => this._onState('B', e)
+        onStateChange: (e) => this._onState('B', e),
+        onError: (e) => this.onError('B', e)
       }
     });
     this.monitorTimer = setInterval(() => this._monitor(), 1000);
@@ -686,10 +679,34 @@ const cfm = {
   _onState(which, event) {
     if (which !== this.active || this.fading) return;
     if (event.data === YT.PlayerState.PLAYING) {
+      this._errorCount = 0; // S131: reset on successful play
       session.onTrackPlaying();
     } else if (event.data === YT.PlayerState.ENDED) {
       session.onTrackEnded();
+    } else if (event.data === YT.PlayerState.CUED) {
+      // Video cued but not playing — try to play it
+      try { this._ap().playVideo(); } catch(e) {}
+    } else if (event.data === -1 || event.data === 5) {
+      // S131: Unstarted (-1) or CUED (5) after load — may need a nudge
     }
+    // S131: YouTube ERROR recovery
+    if (event.data === 2 && this._lastEventData === 3) {
+      // Paused after buffering = likely failed silently
+    }
+    this._lastEventData = event.data;
+  },
+
+  // S131: Handle video errors — skip to next track
+  onError(which, event) {
+    if (!sessionActive) return;
+    this._errorCount++;
+    const code = event?.data || 'unknown';
+    console.warn(`[CFM] Player ${which} ERROR (code: ${code}) — attempt ${this._errorCount}/${this._maxConsecutiveErrors}`);
+    if (this._errorCount >= this._maxConsecutiveErrors) {
+      console.error(`[CFM] ${this._maxConsecutiveErrors} consecutive errors — stopping retries`);
+      return;
+    }
+    session.onTrackEnded();
   },
 
   _monitor() {
@@ -816,18 +833,23 @@ const glowEngine = {
 
   // Get energy at current playback position from the track's curve
   getTrackEnergy(track, playbackTime) {
-    if (!track || !track.curve || track.curve.length < 2) return track ? track.energy10 || 5 : 5;
-    // curve is [[t, e], [t, e], ...] — t in seconds, e in raw RMS
-    const curve = track.curve;
+    // Prefer curve10 (pre-computed 1-10 multi-feature), fall back to curve (raw RMS)
+    const c10 = track && track.curve10;
+    const cRaw = track && track.curve;
+    const useCurve10 = c10 && c10.length >= 2;
+    const curve = useCurve10 ? c10 : cRaw;
+    if (!track || !curve || curve.length < 2) return track ? track.energy10 || 5 : 5;
+
     for (let i = 1; i < curve.length; i++) {
       if (curve[i][0] >= playbackTime) {
         const prev = curve[i - 1], curr = curve[i];
         const pct = (playbackTime - prev[0]) / (curr[0] - prev[0]);
-        const rawE = prev[1] + pct * (curr[1] - prev[1]);
-        return rawEnergyTo10(rawE);
+        const interpE = prev[1] + pct * (curr[1] - prev[1]);
+        return useCurve10 ? Math.max(1, Math.min(10, interpE)) : rawEnergyTo10(interpE);
       }
     }
-    return rawEnergyTo10(curve[curve.length - 1][1]);
+    const lastE = curve[curve.length - 1][1];
+    return useCurve10 ? Math.max(1, Math.min(10, lastE)) : rawEnergyTo10(lastE);
   }
 };
 
@@ -848,8 +870,9 @@ const session = {
   recentArtists: [],
   tracksPlayed: 0,
 
-  start(energy, durationMin) {
-    this.arc = new ArcEngine(energy, durationMin);
+  start(presetId, durationMin) {
+    this.arc = new ArcEngine(presetId, durationMin);
+    console.log(`[SESSION] Arc: ${this.arc.presetName} (${this.arc.presetId}) — ${durationMin} min`);
     this.log = new TransitionLog();
     this.playedIds = [];
     this.recentArtists = [];
@@ -1016,7 +1039,6 @@ const session = {
 
     // Log the transition
     this.log.log(fromTrack, track, reason);
-    logMusicDecision(track, reason, meCurrentIntent);
 
     // Track bookkeeping
     this.playedIds.push(track.id);
@@ -1033,6 +1055,21 @@ const session = {
 
     const intentLabel = meCurrentIntent ? `${meCurrentIntent.type}(${meCurrentIntent.confidence.toFixed(2)})` : 'arc';
     console.log(`[ME] Playing: ${track.title} by ${track.artist} | seek:${Math.round(seekTime)}s | E:${track.energy10?.toFixed(1)} | target:${targetEnergy.toFixed(1)} (arc:${arcEnergy.toFixed(1)}) | intent:${intentLabel} | phase:${phase}`);
+
+    // S131: Update debug panel with music decision
+    const dbgTrack = $('dbg-track');
+    const dbgDecision = $('dbg-decision');
+    if (dbgTrack) {
+      dbgTrack.innerHTML = `<span class="value">${track.title || track.id}</span><br>${track.artist || ''} · E:${track.energy10?.toFixed(1)} · ${track.camelot || '?'} · ${Math.round(track.bpm)}bpm`;
+    }
+    if (dbgDecision) {
+      const keyOk = fromTrack && fromTrack.camelot && track.camelot
+        ? (TrackRepository.CAMELOT_WHEEL[fromTrack.camelot] || []).includes(track.camelot) ? 'OK' : 'CLASH'
+        : '—';
+      dbgDecision.innerHTML =
+        `${reason.type} · target E:${targetEnergy.toFixed(1)} (arc:${arcEnergy.toFixed(1)}) · seek:${Math.round(seekTime)}s<br>` +
+        `intent: ${intentLabel} · key: <span style="color:${keyOk === 'CLASH' ? '#ff3b5c' : '#50fa7b'}">${keyOk}</span> · phase: ${phase}`;
+    }
   },
 
   onTrackPlaying() {
@@ -1088,7 +1125,7 @@ const session = {
     // Log full transition history to console
     console.log('[SESSION] Full transition log:', JSON.stringify(this.log.entries, null, 2));
     try { localStorage.setItem('me_eddie_last_session', JSON.stringify({
-      time: new Date().toISOString(), duration: elapsed, energy: selectedEnergy,
+      time: new Date().toISOString(), duration: elapsed, preset: selectedPreset,
       summary, transitions: this.log.entries
     })); } catch(e) {}
   }
@@ -1097,7 +1134,7 @@ const session = {
 // ==================== UI WIRING ====================
 
 function beginSession() {
-  if (!selectedEnergy) return;
+  if (!selectedPreset) return;
 
   $('v-entry').classList.remove('active');
   $('v-session').classList.add('active');
@@ -1130,7 +1167,7 @@ function beginSession() {
     }
     if (cfm.ready.A && cfm.ready.B) {
       clearInterval(waitForPlayers);
-      session.start(selectedEnergy, selectedDuration);
+      session.start(selectedPreset, selectedDuration);
     }
   }, 200);
 
@@ -1139,12 +1176,12 @@ function beginSession() {
     clearInterval(waitForPlayers);
     if (!sessionActive) {
       if (cfm.ready.A || cfm.ready.B) {
-        session.start(selectedEnergy, selectedDuration);
+        session.start(selectedPreset, selectedDuration);
       } else {
         console.error('[EDDIE] YouTube players not ready after 12s. Check: network, ad blocker, YT iframe API');
         if (timer) timer.textContent = 'YT FAILED — check console';
         // Start anyway for camera/state — music won't play
-        session.start(selectedEnergy, selectedDuration);
+        session.start(selectedPreset, selectedDuration);
       }
     }
   }, 12000);

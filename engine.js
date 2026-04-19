@@ -191,6 +191,9 @@ class StateEstimator {
     this._lastFaceTime = 0;
     this._signalRegime = 'unknown'; // 'rich' | 'sparse' | 'absent'
     this._regimeDetectedAt = 0;
+
+    // S131: Track last processed face timestamp to avoid re-processing stale data
+    this._lastProcessedFaceTime = 0;
   }
 
   addFaceData(data) {
@@ -253,11 +256,15 @@ class StateEstimator {
   // Phase 2c: Extract ENERGY features from face data (separate from immersion)
   _updateFromFace(now, context) {
     const recent = this.faceHistory.slice(-6);
-    if (recent.length === 0) return; // No face data → predict-only, uncertainty grows naturally
+    if (recent.length === 0) return;
 
     const latestFaceTime = recent[recent.length - 1].t;
     const faceAge = now - latestFaceTime;
-    if (faceAge > 30000) return; // Stale face → predict-only (Kalman handles uncertainty growth)
+    if (faceAge > 30000) return; // Stale face → predict-only
+
+    // S131: Don't re-process the same face reading across ticks
+    if (latestFaceTime <= this._lastProcessedFaceTime) return;
+    this._lastProcessedFaceTime = latestFaceTime;
 
     const latest = recent[recent.length - 1];
 
@@ -368,19 +375,25 @@ class StateEstimator {
     }
   }
 
-  // V4: Detect signal regime — rich / sparse / absent (W-2)
+  // S131: Detect signal regime — face AGE is primary signal, not just count
   _detectSignalRegime(now) {
     const lastFace = this.faceHistory.length > 0 ? this.faceHistory[this.faceHistory.length - 1] : null;
     const faceAge = lastFace ? (now - lastFace.t) : Infinity;
 
-    // Check face read frequency over last 2 minutes
-    const twoMinAgo = now - 120000;
-    const recentFaceCount = this.faceHistory.filter(f => f.t > twoMinAgo).length;
-
+    // Face age is the primary signal — if latest reading is stale, we're absent
     let regime;
-    if (recentFaceCount >= 20) regime = 'rich';       // ~10+ reads per min
-    else if (recentFaceCount >= 3) regime = 'sparse';  // Some reads but gaps
-    else regime = 'absent';                             // <3 in 2 min
+    if (faceAge > 30000) {
+      regime = 'absent';  // No face for 30s+ = absent, period
+    } else if (faceAge > 10000) {
+      // Check frequency — face exists but infrequent
+      const twoMinAgo = now - 120000;
+      const recentFaceCount = this.faceHistory.filter(f => f.t > twoMinAgo).length;
+      regime = recentFaceCount >= 10 ? 'sparse' : 'absent';
+    } else {
+      const oneMinAgo = now - 60000;
+      const recentFaceCount = this.faceHistory.filter(f => f.t > oneMinAgo).length;
+      regime = recentFaceCount >= 10 ? 'rich' : 'sparse';
+    }
 
     if (regime !== this._signalRegime) {
       this._signalRegime = regime;
@@ -412,29 +425,39 @@ class StateEstimator {
     }
   }
 
-  // V4: Time-based uncertainty growth (W-4: "I don't know" ≠ "do nothing")
+  // S131: Time-based decay — state decays toward neutral when face data stops
   _applyTimeDrift(now) {
     const lastFace = this.faceHistory.length > 0 ? this.faceHistory[this.faceHistory.length - 1] : null;
     const faceAge = lastFace ? (now - lastFace.t) / 1000 : Infinity;
 
-    if (faceAge > 60) {
-      // No face for >60s: grow uncertainty — covariance increases beyond normal Q
-      // This prevents the Kalman from being confidently wrong about a stale state
-      const extraUncertainty = Math.min(0.05, (faceAge - 60) / 1000 * 0.01);
+    if (faceAge > 30) {
+      // No face for >30s: grow uncertainty aggressively
+      const extraUncertainty = Math.min(0.1, (faceAge - 30) / 500 * 0.02);
       this.kf.energy.P += extraUncertainty;
       this.kf.immersion.P += extraUncertainty;
     }
 
-    // In sparse/absent regime, gently drift energy toward arc target (W-4)
-    // The system should follow the arc when it can't see the user
-    if (this._signalRegime === 'absent' || this._signalRegime === 'sparse') {
-      // Only drift if we have arc context
+    // In absent regime: decay BOTH energy and immersion toward neutral
+    if (this._signalRegime === 'absent') {
+      // Energy drifts toward arc (if available) or neutral 0.4
+      const energyTarget = this._arcTarget !== undefined ? this._arcTarget / 10 : 0.4;
+      const eGap = energyTarget - this.kf.energy.x;
+      if (Math.abs(eGap) > 0.03) {
+        this.kf.energy.update(this.kf.energy.x + eGap * 0.08, 0.6);
+      }
+
+      // Immersion decays toward neutral (0.4) — can't be "engaged" if you're not there
+      const iGap = 0.4 - this.kf.immersion.x;
+      if (Math.abs(iGap) > 0.03) {
+        this.kf.immersion.update(this.kf.immersion.x + iGap * 0.10, 0.5);
+      }
+    } else if (this._signalRegime === 'sparse') {
+      // Sparse: slower drift, only energy toward arc
       if (this._arcTarget !== undefined) {
-        const arcNorm = this._arcTarget / 10; // arc is 0-10, energy is 0-1
+        const arcNorm = this._arcTarget / 10;
         const gap = arcNorm - this.kf.energy.x;
-        // Gentle drift: 2% of gap per tick toward arc, high noise (uncertain)
         if (Math.abs(gap) > 0.05) {
-          this.kf.energy.update(this.kf.energy.x + gap * 0.02, 0.8);
+          this.kf.energy.update(this.kf.energy.x + gap * 0.03, 0.8);
         }
       }
     }
@@ -994,13 +1017,20 @@ class IntentGenerator {
     // Track dynamics (ME Layer 2)
     this._trackDynamics(state, sessionElapsed);
 
-    // No biometric signal → no intent, fall back to arc
-    if (!calibrated || signalRegime === 'absent') {
-      return this._emit({ type: 'arc_fallback', confidence: 0, reason: 'no biometric signal',
+    // S131: Not calibrated → pure arc fallback
+    if (!calibrated) {
+      return this._emit({ type: 'arc_fallback', confidence: 0, reason: 'calibrating — no biometric baseline yet',
         dimensions: { energy: 'arc', novelty: 'moderate', intensity: 0 } }, now);
     }
 
-    // Low confidence in sparse regime → conservative intent
+    // S131: Absent regime but calibrated → follow arc, but mark as degraded (not zero)
+    // The system had real data and now it's gone — trust the arc, not the stale state
+    if (signalRegime === 'absent') {
+      return this._emit({ type: 'arc_fallback', confidence: 0.15, reason: 'face lost — following arc until signal returns',
+        dimensions: { energy: 'arc', novelty: 'moderate', intensity: 0.1 } }, now);
+    }
+
+    // Sparse regime → intent still flows but with confidence floor
     const confidenceFloor = signalRegime === 'sparse' ? 0.3 : 0;
 
     // === FLOW STATE: Don't touch (with safeguards) ===
@@ -1353,7 +1383,23 @@ class TrackRepository {
     '12A': ['12A', '11A', '1A', '12B'], '12B': ['12B', '11B', '1B', '12A']
   };
 
-  // Genre affinity matrix — same genre +15, adjacent +8, distant -10
+  static GENRE_NORMALIZE = {
+    house: 'electronic', techno: 'electronic', progressive_house: 'electronic',
+    downtempo: 'electronic', psychedelic: 'electronic', trance: 'electronic',
+    indie: 'rock', punk: 'rock', metal: 'rock', alternative: 'rock',
+    rnb: 'hiphop', rap: 'hiphop', trap: 'hiphop',
+    funk: 'pop', soul: 'pop', disco: 'pop', reggaeton: 'pop',
+    afrobeats: 'world', afrobeat: 'world', latin: 'world', punjabi: 'bollywood',
+    unknown: null
+  };
+
+  static normalizeGenre(genre) {
+    if (!genre) return null;
+    const g = genre.toLowerCase();
+    if (TrackRepository.GENRE_AFFINITY[g]) return g;
+    return TrackRepository.GENRE_NORMALIZE[g] !== undefined ? TrackRepository.GENRE_NORMALIZE[g] : null;
+  }
+
   static GENRE_AFFINITY = {
     electronic: { electronic: 15, ambient: 8, pop: 3, hiphop: -5, rock: 0, classical: -5, jazz: -5, bollywood: -5, world: 3 },
     ambient:    { electronic: 8, ambient: 15, pop: -5, hiphop: -10, rock: 0, classical: 8, jazz: 3, bollywood: -5, world: 3 },
@@ -1378,10 +1424,12 @@ class TrackRepository {
     }
     this.tracks = data.map(t => ({
       ...t,
-      // Normalize energy to 0-10 scale for engine compatibility
-      energy10: this._rawEnergyTo10(t.energyAvg),
-      // Parse energy curve back from compact format
-      energyCurve: (t.curve || []).map(p => ({ t: p[0], e: p[1] }))
+      // Use pre-computed multi-feature energy (1-10) if available, fall back to RMS conversion
+      energy10: t.energy10 > 0 ? t.energy10 : this._rawEnergyTo10(t.energyAvg),
+      // Parse energy curve — prefer 1-10 scale curve, fall back to raw RMS curve
+      energyCurve: (t.curve10 && t.curve10.length > 0)
+        ? t.curve10.map(p => ({ t: p[0], e10: p[1] }))
+        : (t.curve || []).map(p => ({ t: p[0], e: p[1] }))
     }));
     this.loaded = true;
     console.log(`[REPO] Loaded ${this.tracks.length} tracks`);
@@ -1439,11 +1487,11 @@ class TrackRepository {
         else score -= 10;
       }
 
-      // Camelot key compatibility
+      // Camelot key compatibility — S131: key clashes heavily penalized
       if (camelotKey && t.camelot) {
         const compatible = this.getCompatibleKeys(camelotKey);
         if (compatible.includes(t.camelot)) score += 25;
-        else score -= 5;
+        else score -= 25;
       }
 
       // Bonus: high confidence data is more reliable
@@ -1456,17 +1504,16 @@ class TrackRepository {
         if (targetEnergy <= 4 && t.danceability <= 4) score += 5;
       }
 
-      // Genre affinity — smooth transitions between compatible genres
+      // Genre affinity — normalize sub-genres before scoring
       let genreBonus = 0;
-      if (currentGenre && t.genre) {
-        const affinity = TrackRepository.GENRE_AFFINITY[currentGenre];
+      const normFrom = TrackRepository.normalizeGenre(currentGenre);
+      const normTo = TrackRepository.normalizeGenre(t.genre);
+      if (normFrom && normTo) {
+        const affinity = TrackRepository.GENRE_AFFINITY[normFrom];
         if (affinity) {
-          genreBonus = affinity[t.genre] !== undefined ? affinity[t.genre] : -10;
+          genreBonus = affinity[normTo] !== undefined ? affinity[normTo] : 0;
           score += genreBonus;
         }
-      }
-      if (currentGenre) {
-        console.log(`[GENRE] ${t.title || t.id}: ${t.genre || 'unknown'} (from ${currentGenre}) → ${genreBonus >= 0 ? '+' : ''}${genreBonus} pts | total=${score}`);
       }
 
       return { track: t, score };
@@ -1491,14 +1538,17 @@ class TrackRepository {
     const track = this.tracks.find(t => t.id === trackId);
     if (!track || !track.energyCurve || track.energyCurve.length < 3) return 0;
 
-    // Convert target energy (0-10) back to raw scale for curve comparison
-    const targetRaw = targetEnergy <= 1 ? 0.02 : Math.pow(10, ((targetEnergy - 1) * 26 / 9 - 34) / 20);
+    // Detect curve format: e10 (new multi-feature 1-10) or e (legacy raw RMS)
+    const hasE10 = track.energyCurve[0].e10 !== undefined;
 
     // Find the curve point closest to target energy
     let bestIdx = 0;
     let bestDiff = Infinity;
     for (let i = 0; i < track.energyCurve.length; i++) {
-      const diff = Math.abs(track.energyCurve[i].e - targetRaw);
+      const pointEnergy = hasE10
+        ? track.energyCurve[i].e10                    // Already on 1-10 scale
+        : this._rawEnergyTo10(track.energyCurve[i].e); // Convert legacy raw RMS
+      const diff = Math.abs(pointEnergy - targetEnergy);
       if (diff < bestDiff) { bestDiff = diff; bestIdx = i; }
     }
 
